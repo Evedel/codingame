@@ -1,0 +1,11 @@
+01:20:55,148 INFO  [com.magusgeek.brutaltester.Main] Referee command line: java -jar unleash.jar
+01:20:55,149 INFO  [com.magusgeek.brutaltester.Main] Player 1 command line: python -u ./amadeusNew.py
+01:20:55,149 INFO  [com.magusgeek.brutaltester.Main] Player 2 command line: python -u ./amadeus40.py
+01:20:55,149 INFO  [com.magusgeek.brutaltester.Main] Number of games to play: 300
+01:20:55,150 INFO  [com.magusgeek.brutaltester.Main] Number of threads to spawn: 2
+01:20:58,763 INFO  [com.magusgeek.brutaltester.GameThread] End of game 2	 100.00% 0.00%
+01:20:58,784 INFO  [com.magusgeek.brutaltester.GameThread] End of game 1	 100.00% 0.00%
+01:21:02,234 INFO  [com.magusgeek.brutaltester.GameThread] End of game 3	 66.67% 33.33%
+01:21:02,365 INFO  [com.magusgeek.brutaltester.GameThread] End of game 4	 75.00% 25.00%
+01:21:05,769 INFO  [com.magusgeek.brutaltester.GameThread] End of game 6	 60.00% 40.00%
+01:21:05,853 INFO  [com.magusgeek.brutaltester.GameThread] End of game 5	 66.67% 33.33%
