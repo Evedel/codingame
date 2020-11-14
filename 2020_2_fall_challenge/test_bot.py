@@ -194,12 +194,69 @@ def test_real_life():
   p = bot.Potion()
   p.delta = [0,-4,0,0]
   print('main test is here ->')
-  bot.init_prefabs()
   solved = bot.find_solution(s, p)
   print(solved.turns)
   t2 = time.time()
   print(t2-t1)
   # < 0.015
+
+def test_get_distance():
+  state = bot.State()
+  potion = bot.Potion()
+  state.inv = [3,0,0,0]
+  potion.delta = [-3,0,0,0]
+  dist = bot.get_distance(state, potion)
+  if dist != 0:
+    print("Failed: test_get_distance: v1: should be zero")
+
+  state.inv = [3,0,0,0]
+  potion.delta = [-4,0,0,0]
+  dist = bot.get_distance(state, potion)
+  if dist != 1:
+    print("Failed: test_get_distance: v1: should be one")
+
+  state.inv = [4,0,0,0]
+  potion.delta = [-3,0,0,0]
+  dist = bot.get_distance(state, potion)
+  if dist != 0:
+    print("Failed: test_get_distance: v1: should be zero")
+
+
+  state.inv = [4,0,0,0]
+  potion.delta = [-3,-1,0,0]
+  dist = bot.get_distance(state, potion)
+  if dist != 1:
+    print("Failed: test_get_distance: v1: should be one")
+
+  state.inv = [4,2,0,0]
+  potion.delta = [-3,-1,0,0]
+  dist = bot.get_distance(state, potion)
+  if dist != 0:
+    print("Failed: test_get_distance: v1: should be zero")
+
+  state.inv = [4,0,0,0]
+  potion.delta = [-3,0,-1,0]
+  dist = bot.get_distance(state, potion)
+  if dist != 2:
+    print("Failed: test_get_distance: v1: should be two")
+
+  state.inv = [0,0,0,0]
+  potion.delta = [0,-1,0,0]
+  dist = bot.get_distance(state, potion)
+  if dist != 2:
+    print("Failed: test_get_distance: v1: should be two")
+
+  state.inv = [0,0,0,0]
+  potion.delta = [0,0,-1,0]
+  dist = bot.get_distance(state, potion)
+  if dist != 3:
+    print("Failed: test_get_distance: v1: should be three")
+
+  state.inv = [0,0,0,0]
+  potion.delta = [0,-2,-1,-1]
+  dist = bot.get_distance(state, potion)
+  if dist != 11:
+    print("Failed: test_get_distance: v1: should be three")
 
 def test_priority():
   d1 = 10000
@@ -221,3 +278,5 @@ def test_priority():
 
 test_real_life()
 # test_priority()
+
+# test_get_distance()

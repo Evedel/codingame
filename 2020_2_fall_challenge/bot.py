@@ -31,6 +31,7 @@ class State:
     self.inv = []
     self.spells = []
     self.turns = []
+    self.dist = 0
 
   def copy(self):
     t = State()
@@ -39,6 +40,7 @@ class State:
       t.spells.append(s.copy())
     t.inv = self.inv[:]
     t.turns = self.turns[:]
+    t.dist = self.dist
     return t
 
 def is_enough_ingredients(state, potion):
@@ -79,24 +81,42 @@ def get_states(state):
       new_states.append(new_state)
   return new_states
 
+def get_distance(state, potion):
+  dist = [0,0,0,0]
+  for i in range(4):
+    if (potion.delta[i] < 0):
+      dist[i] += state.inv[i] + potion.delta[i]
+      if dist[i] < 0:
+        jfirst = -1
+        for j in reversed(range(i)):
+          if dist[j] > 0:
+            jfirst = j
+            break
+        dist[i] *= i-jfirst
+  for i in range(4):
+    dist[i] = abs(min(0,dist[i]))
+  return sum(dist)
+
 def find_solution(state, potion):
   all_states = [state.copy()]
 
-  
   if (is_enough_ingredients(all_states[0], potion)):
     all_states[0].turns.append('BREW '+str(potion.id))
     # print(i, all_states[0].inv, potion.delta, all_states[0].turns)
     # dp('found solution in '+str(i)+' steps')
     return all_states[0]
 
-  max_int = 200
+  all_states[0].dist = get_distance(all_states[0], potion)
+  max_int = 170
   for i in range(max_int):
     # print('Q',len(all_states),all_states[0].turns)
     if len(all_states) == 0:
       return state
     new_states = get_states(all_states[0])
     for s in new_states:
-      all_states.append(s)
+      s.dist = get_distance(s, potion)
+      if (s.dist <= all_states[0].dist):
+        all_states.append(s)
       if (is_enough_ingredients(s, potion)):
         s.turns.append('BREW '+str(potion.id))
         # print(i, s.inv, potion.delta, s.turns)
