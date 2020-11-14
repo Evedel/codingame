@@ -9,7 +9,6 @@ def dp(s):
 
 class Potion:
   def __init__(self):
-    self.dist = 10**5
     self.id = 0
     self.price = 0
 
@@ -45,7 +44,8 @@ class State:
 
 def is_enough_ingredients(state, potion):
   for i in range(4):
-    if state.inv[i]+potion.delta[i] < 0: return False
+    if state.inv[i]+potion.delta[i] < 0:
+      return False
   return True
 
 def try_cast(state,spell_id):
