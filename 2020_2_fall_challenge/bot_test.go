@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 func Test1(t *testing.T) {
@@ -199,8 +200,6 @@ func Test4(t *testing.T) {
 	s.spells[1].delta = [4]int{-1, 1, 0, 0}
 	s.spells[1].id = 1
 	solved = find_solution(s, p)
-	fmt.Println(solved.turns)
-	fmt.Println(s.turns)
 	// if solved.turns != ['REST', 'CAST 0', 'CAST 1', 'BREW 0']:
 	//   print("Failed: test_find_solution: v5: wrong turns returned")
 
@@ -236,3 +235,59 @@ func Test4(t *testing.T) {
 	// # s.spells[1].delta = [-1,1,0,0]
 	// # s.spells[1].is_ready = True
 }
+
+func Test5(t *testing.T) {
+	start := time.Now()
+
+	s := State{}
+
+	s.spells = append(s.spells, Spell{})
+	s.spells[0].delta = [4]int{2, 0, 0, 0}
+	s.spells[0].is_ready = true
+	s.spells[0].id = 0
+
+	s.spells = append(s.spells, Spell{})
+	s.spells[1].delta = [4]int{-1, 1, 0, 0}
+	s.spells[1].is_ready = true
+	s.spells[1].id = 1
+
+	s.spells = append(s.spells, Spell{})
+	s.spells[2].delta = [4]int{0, -1, 1, 0}
+	s.spells[2].is_ready = true
+	s.spells[2].id = 2
+
+	s.spells = append(s.spells, Spell{})
+	s.spells[3].delta = [4]int{0, 0, -1, 1}
+	s.spells[3].is_ready = true
+	s.spells[3].id = 3
+
+	s.spells = append(s.spells, Spell{})
+	s.spells[4].delta = [4]int{3, 0, 0, 0}
+	s.spells[4].is_ready = true
+	s.spells[4].id = 4
+
+	s.spells = append(s.spells, Spell{})
+	s.spells[5].delta = [4]int{0, 0, 0, 1}
+	s.spells[5].is_ready = true
+	s.spells[5].id = 5
+
+	s.spells = append(s.spells, Spell{})
+	s.spells[6].delta = [4]int{3, -1, 0, 0}
+	s.spells[6].is_ready = true
+	s.spells[6].id = 6
+
+	s.inv = [4]int{3, 0, 0, 1}
+
+	p := Potion{}
+	p.delta = [4]int{0, 0, 0, -5}
+	fmt.Println("main test is here ->")
+	solved := find_solution(s, p)
+	fmt.Println(len(solved.turns), solved.turns)
+	elapsed := time.Since(start)
+
+	fmt.Println(elapsed)
+	// < 10 ms
+}
+
+// 369 -- 15 steps -- my
+// 445 -- 14 steps -- sq

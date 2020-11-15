@@ -143,6 +143,16 @@ func get_distance(state State, potion Potion) int {
 		}
 		total += dist[i]
 	}
+	// total := 0
+	// for i := range potion.delta {
+	// 	diff := state.inv[i] + potion.delta[i]
+	// 	if diff > 0 {
+	// 		diff = 0
+	// 	} else {
+	// 		diff = -diff * (i + 1) * (i + 1)
+	// 	}
+	// 	total += diff
+	// }
 	return total
 }
 
@@ -155,31 +165,44 @@ func find_solution(state State, potion Potion) State {
 	if is_enough_ingredients(all_states[0], potion) {
 		all_states[0].turns = append(all_states[0].turns, "BREW "+strconv.Itoa(potion.id))
 		// # print(i, all_states[0].inv, potion.delta, all_states[0].turns)
-		dp("found solution in : 0 steps")
+		dp(" <> already at solution ")
 		return all_states[0]
 	}
 	all_states[0].dist = get_distance(all_states[0], potion)
+	minDist := all_states[0].dist
 	i := 0
 	elapsed := time.Since(start)
-	checkTime := int(100.0 * (4.0 / float64(len(state.spells))))
+	lastElapsed := elapsed
+	sumElapsed := elapsed
+	timeMeasures := 1
+	checkTime := int(50.0 * (4.0 / float64(len(state.spells))))
 	for {
 		elapsed = time.Since(start)
 		if i%checkTime == 0 {
-			if elapsed > time.Millisecond*10 {
+			sumElapsed += (elapsed - lastElapsed)
+			lastElapsed = elapsed
+			timeMeasures++
+			avgElapsed := sumElapsed.Microseconds() / int64(timeMeasures)
+			if elapsed.Microseconds()+avgElapsed > (time.Millisecond * 10).Microseconds() {
 				break
 			}
+			// dp(elapsed, elapsed.Microseconds(), avgElapsed, elapsed.Microseconds()+avgElapsed)
 		}
 		if len(all_states) == 0 {
 			return state
 		}
+		// dp(i, all_states[0].inv, all_states[0].turns, all_states[0].dist, minDist)
+		// time.Sleep(time.Millisecond * 100)
 		new_states := get_states(all_states[0])
 		for _, s := range new_states {
-			// s.dist = get_distance(s, potion)
-			// if s.dist <= all_states[0].dist {
-			all_states = append(all_states, s)
-			// }
+			s.dist = get_distance(s, potion)
+			if s.dist <= minDist {
+				all_states = append(all_states, s)
+				minDist = s.dist
+			}
 			if is_enough_ingredients(s, potion) {
 				s.turns = append(s.turns, "BREW "+strconv.Itoa(potion.id))
+				// dp(i, s.inv, s.turns, s.dist, minDist)
 				dp(" >> found solution in : " + strconv.Itoa(i) + " steps")
 				return s
 			}
@@ -187,7 +210,7 @@ func find_solution(state State, potion Potion) State {
 		all_states = all_states[1:]
 		i++
 	}
-	dp(" >> search size : ", i, elapsed)
+	// dp(" >> search size : ", i, elapsed)
 	return state
 }
 
@@ -196,12 +219,12 @@ func main() {
 	canLearnAgain := learningTimeOut
 	roundNumber := 0
 	for {
-		learnId := -1
 		forceLearn := false
-		learTax := 0
+		learnID := -1
 
 		var state State
 		potions := []Potion{}
+		spellsToLearn := []Spell{}
 
 		var actionCount int
 		fmt.Scan(&actionCount)
@@ -231,14 +254,16 @@ func main() {
 				state.spells = append(state.spells, s)
 			}
 			if actionType == "LEARN" {
-				if learnId == -1 {
-					learnId = actionId
-				} else {
-					learTax++
-				}
-				if (delta0 >= 0) && (delta1 >= 0) && (delta2 >= 0) && (delta3 >= 0) {
-					learnId = actionId
+				spellsToLearn = append(spellsToLearn,
+					Spell{[4]int{delta0, delta1, delta2, delta3}, actionId, true})
+				if (!forceLearn) &&
+					(roundNumber < 50) &&
+					(delta0 >= 0) &&
+					(delta1 >= 0) &&
+					(delta2 >= 0) &&
+					(delta3 >= 0) {
 					forceLearn = true
+					learnID = len(spellsToLearn) - 1
 				}
 			}
 		}
@@ -253,13 +278,34 @@ func main() {
 		turn := "WAIT"
 		d1 := 10000
 		c1 := 1
+		if (roundNumber < 10) && (!forceLearn) {
+			forceLearn = true
+			learnID = 0
+		}
 		if forceLearn {
-			if state.inv[0] >= learTax {
-				turn = "LEARN " + strconv.Itoa(learnId)
+			learnTax := learnID
+			if state.inv[0] >= learnTax {
+				turn = "LEARN " + strconv.Itoa(spellsToLearn[learnID].id)
 				canLearnAgain = roundNumber + learningTimeOut
 			} else {
-				if state.spells[0].is_ready {
-					turn = "CAST " + strconv.Itoa(state.spells[0].id)
+				useSpellID := -1
+				for i := range state.spells {
+					if (state.spells[i].delta[0] > 0) &&
+						(state.spells[i].is_ready) &&
+						(state.spells[i].delta[1] == 0) &&
+						(state.spells[i].delta[2] == 0) &&
+						(state.spells[i].delta[3] == 0) {
+						if useSpellID == -1 {
+							useSpellID = i
+						} else {
+							if state.spells[i].delta[0] > state.spells[useSpellID].delta[0] {
+								useSpellID = i
+							}
+						}
+					}
+				}
+				if useSpellID != -1 {
+					turn = "CAST " + strconv.Itoa(state.spells[useSpellID].id)
 				} else {
 					turn = "REST"
 				}
@@ -292,12 +338,12 @@ func main() {
 			}
 			if turn == "WAIT" {
 				if roundNumber > canLearnAgain {
-					turn = "LEARN " + strconv.Itoa(learnId)
+					turn = "LEARN " + strconv.Itoa(spellsToLearn[0].id)
 					canLearnAgain += learningTimeOut
 				} else {
-					for i := 0; i < 4; i++ {
-						_, is_ok := try_cast(state, i)
-						if is_ok {
+					for i := range state.spells {
+						_, isOk := try_cast(state, i)
+						if isOk {
 							turn = "CAST " + strconv.Itoa(state.spells[i].id)
 							break
 						}
