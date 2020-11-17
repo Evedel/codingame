@@ -6,282 +6,284 @@ import (
 	"time"
 )
 
-func Test1(t *testing.T) {
+func TestGetDistance(t *testing.T) {
 	var state State
 	var potion Potion
 	state.inv = [4]int{3, 0, 0, 0}
 	potion.delta = [4]int{-3, 0, 0, 0}
-	dist := get_distance(state, potion)
+	dist := getDistance(state, potion)
 	if dist != 0 {
-		fmt.Println("Failed: test_get_distance: v1: should be zero")
+		fmt.Println("Failed: TestGetDistance: v1: should be zero")
 	}
 	state.inv = [4]int{3, 0, 0, 0}
 	potion.delta = [4]int{-4, 0, 0, 0}
-	dist = get_distance(state, potion)
+	dist = getDistance(state, potion)
 	if dist != 1 {
-		fmt.Println("Failed: test_get_distance: v1: should be one")
+		fmt.Println("Failed: TestGetDistance: v1: should be one")
 	}
 
 	state.inv = [4]int{4, 0, 0, 0}
 	potion.delta = [4]int{-3, 0, 0, 0}
-	dist = get_distance(state, potion)
+	dist = getDistance(state, potion)
 	if dist != 0 {
-		fmt.Println("Failed: test_get_distance: v1: should be zero")
+		fmt.Println("Failed: TestGetDistance: v1: should be zero")
 	}
 
 	state.inv = [4]int{4, 0, 0, 0}
 	potion.delta = [4]int{-3, -1, 0, 0}
-	dist = get_distance(state, potion)
+	dist = getDistance(state, potion)
 	if dist != 1 {
-		fmt.Println("Failed: test_get_distance: v1: should be one")
+		fmt.Println("Failed: TestGetDistance: v1: should be one")
 	}
 
 	state.inv = [4]int{4, 2, 0, 0}
 	potion.delta = [4]int{-3, -1, 0, 0}
-	dist = get_distance(state, potion)
+	dist = getDistance(state, potion)
 	if dist != 0 {
-		fmt.Println("Failed: test_get_distance: v1: should be zero")
+		fmt.Println("Failed: TestGetDistance: v1: should be zero")
 	}
 
 	state.inv = [4]int{4, 0, 0, 0}
 	potion.delta = [4]int{-3, 0, -1, 0}
-	dist = get_distance(state, potion)
+	dist = getDistance(state, potion)
 	if dist != 2 {
-		fmt.Println("Failed: test_get_distance: v1: should be two")
+		fmt.Println("Failed: TestGetDistance: v1: should be two")
 	}
 
 	state.inv = [4]int{0, 0, 0, 0}
 	potion.delta = [4]int{0, -1, 0, 0}
-	dist = get_distance(state, potion)
+	dist = getDistance(state, potion)
 	if dist != 2 {
-		fmt.Println("Failed: test_get_distance: v1: should be two")
+		fmt.Println("Failed: TestGetDistance: v1: should be two")
 	}
 
 	state.inv = [4]int{0, 0, 0, 0}
 	potion.delta = [4]int{0, 0, -1, 0}
-	dist = get_distance(state, potion)
+	dist = getDistance(state, potion)
 	if dist != 3 {
-		fmt.Println("Failed: test_get_distance: v1: should be three")
+		fmt.Println("Failed: TestGetDistance: v1: should be three")
 	}
 
 	state.inv = [4]int{0, 0, 0, 0}
 	potion.delta = [4]int{0, -2, -1, -1}
-	dist = get_distance(state, potion)
+	dist = getDistance(state, potion)
 	if dist != 11 {
-		fmt.Println("Failed: test_get_distance: v1: should be three")
+		fmt.Println("Failed: TestGetDistance: v1: should be three")
 	}
 }
 
-func Test2(t *testing.T) {
+func TestIsEnoughIngredients(t *testing.T) {
 	var s1 State
 	s1.inv = [4]int{0, 0, 0, 0}
 	var p1 Potion
 	p1.delta = [4]int{-1, 0, 0, 0}
-	r1 := is_enough_ingredients(s1, p1)
+	r1 := isEnoughIngredients(s1, p1)
 	if r1 != false {
-		fmt.Println("Failed: test_is_enough_ingredients: v1: should be false")
+		fmt.Println("Failed: TestIsEnoughIngredients: v1: should be false")
 	}
 
 	var s2 State
 	s2.inv = [4]int{1, 0, 0, 0}
 	var p2 Potion
 	p2.delta = [4]int{-1, 0, 0, 0}
-	r2 := is_enough_ingredients(s2, p2)
+	r2 := isEnoughIngredients(s2, p2)
 	if r2 != true {
-		fmt.Println("Failed: test_is_enough_ingredients: v1: should be true")
+		fmt.Println("Failed: TestIsEnoughIngredients: v1: should be true")
 	}
 }
 
-func Test3(t *testing.T) {
+func TestTryCast(t *testing.T) {
 	var s State
 	s.inv = [4]int{0, 0, 0, 0}
 	s.spells = append(s.spells, Spell{})
 	s.spells[0].delta = [4]int{2, 0, 0, 0}
 
-	s.spells[0].is_ready = false
-	_, is_casted := try_cast(s, 0)
-	if is_casted != false {
-		fmt.Println("Failed: test_try_cast: v1: not ready spell is casted")
+	s.spells[0].isReady = false
+	_, isCasted := tryCast(s, 0, 1)
+	if isCasted != false {
+		fmt.Println("Failed: TestTryCast: v1: not ready spell is casted")
 	}
 
-	s.spells[0].is_ready = true
-	new_state, is_casted := try_cast(s, 0)
-	if is_casted == false {
-		fmt.Println("Failed: test_try_cast: ready spell is not casted")
+	s.spells[0].isReady = true
+	newState, isCasted := tryCast(s, 0, 1)
+	if isCasted == false {
+		fmt.Println("Failed: TestTryCast: ready spell is not casted")
 	}
 
-	if new_state.spells[0].is_ready == true {
-		fmt.Println("Failed: test_try_cast: new spell is ready after cast")
+	if newState.spells[0].isReady == true {
+		fmt.Println("Failed: TestTryCast: new spell is ready after cast")
 	}
-	if s.spells[0].is_ready == false {
-		fmt.Println("Failed: test_try_cast: old spell is not ready after cast")
+	if s.spells[0].isReady == false {
+		fmt.Println("Failed: TestTryCast: old spell is not ready after cast")
 	}
-	if new_state.inv != [4]int{2, 0, 0, 0} {
-		fmt.Println("Failed: test_try_cast: v1: not ready spell is casted")
+	if newState.inv != [4]int{2, 0, 0, 0} {
+		fmt.Println("Failed: TestTryCast: v1: not ready spell is casted")
 	}
 
 	if s.inv != [4]int{0, 0, 0, 0} {
-		fmt.Println("Failed: test_try_cast: old inventory is wrong after cast")
+		fmt.Println("Failed: TestTryCast: old inventory is wrong after cast")
 	}
 
 	s.spells[0].delta = [4]int{-1, 1, 0, 0}
-	new_state, is_casted = try_cast(s, 0)
-	if is_casted == true {
-		fmt.Println("Failed: test_try_cast: impossible spell is casted")
+	newState, isCasted = tryCast(s, 0, 1)
+	if isCasted == true {
+		fmt.Println("Failed: TestTryCast: impossible spell is casted")
 	}
-	if new_state.inv != [4]int{0, 0, 0, 0} {
-		fmt.Println("Failed: test_try_cast: new inventory is wrong after not cast")
+	if newState.inv != [4]int{0, 0, 0, 0} {
+		fmt.Println("Failed: TestTryCast: new inventory is wrong after not cast")
 	}
 	if s.inv != [4]int{0, 0, 0, 0} {
-		fmt.Println("Failed: test_try_cast: old inventory is wrong after not cast")
+		fmt.Println("Failed: TestTryCast: old inventory is wrong after not cast")
 	}
-	if new_state.spells[0].is_ready == false {
-		fmt.Println("Failed: test_try_cast: new spell is not ready after not cast")
+	if newState.spells[0].isReady == false {
+		fmt.Println("Failed: TestTryCast: new spell is not ready after not cast")
 	}
-	if s.spells[0].is_ready == false {
-		fmt.Println("Failed: test_try_cast: old spell is not ready after not cast")
+	if s.spells[0].isReady == false {
+		fmt.Println("Failed: TestTryCast: old spell is not ready after not cast")
 	}
 
 	s.inv = [4]int{3, 3, 3, 0}
 	s.spells[0].delta = [4]int{2, 0, 0, 0}
-	new_state, is_casted = try_cast(s, 0)
-	if is_casted == true {
-		fmt.Println("Failed: test_try_cast: impossible spell is casted")
+	newState, isCasted = tryCast(s, 0, 1)
+	if isCasted == true {
+		fmt.Println("Failed: TestTryCast: impossible spell is casted")
 	}
-	if new_state.inv != [4]int{3, 3, 3, 0} {
-		fmt.Println("Failed: test_try_cast: new inventory is wrong after not cast")
+	if newState.inv != [4]int{3, 3, 3, 0} {
+		fmt.Println("Failed: TestTryCast: new inventory is wrong after not cast")
 	}
 	if s.inv != [4]int{3, 3, 3, 0} {
-		fmt.Println("Failed: test_try_cast: old inventory is wrong after not cast")
+		fmt.Println("Failed: TestTryCast: old inventory is wrong after not cast")
 	}
-	if new_state.spells[0].is_ready == false {
-		fmt.Println("Failed: test_try_cast: new spell is not ready after not cast")
+	if newState.spells[0].isReady == false {
+		fmt.Println("Failed: TestTryCast: new spell is not ready after not cast")
 	}
-	if s.spells[0].is_ready == false {
-		fmt.Println("Failed: test_try_cast: old spell is not ready after not cast")
+	if s.spells[0].isReady == false {
+		fmt.Println("Failed: TestTryCast: old spell is not ready after not cast")
 	}
 }
 
-func Test4(t *testing.T) {
+func TestFindSolution(t *testing.T) {
 	var s State
 	s.inv = [4]int{2, 0, 0, 0}
 	var p Potion
+	testName := "TestFindSolution"
 	p.delta = [4]int{-1, 0, 0, 0}
-	solved := find_solution(s, p)
+	solved := findSolution(s, p)
 	if (len(solved.turns) != 1) || (solved.turns[0] != "BREW 0") {
-		fmt.Println("Failed: test_find_solution: v1: should be possible")
+		fmt.Println("Failed: " + testName + ": v1: should be possible")
 	}
 	if len(s.turns) != 0 {
-		fmt.Println("Failed: test_find_solution: v1: should not chabge initial state")
+		fmt.Println("Failed: " + testName + ": v1: should not chabge initial state")
 	}
 
 	s.inv = [4]int{1, 0, 0, 0}
 	p.delta = [4]int{-2, 0, 0, 0}
-	solved = find_solution(s, p)
+	solved = findSolution(s, p)
 	if len(solved.turns) != 0 {
-		fmt.Println("Failed: test_find_solution: should be impossible")
+		fmt.Println("Failed: " + testName + ": should be impossible")
 	}
 
 	s.spells = append(s.spells, Spell{})
 	s.spells[0].delta = [4]int{2, 0, 0, 0}
-	s.spells[0].is_ready = true
-	solved = find_solution(s, p)
+	s.spells[0].isReady = true
+	solved = findSolution(s, p)
 	if (len(solved.turns) != 2) || (solved.turns[0] != "CAST 0") || (solved.turns[1] != "BREW 0") {
-		fmt.Println("Failed: test_find_solution: v3: should be possible")
+		fmt.Println("Failed: " + testName + ": v3: should be possible")
 	}
 
-	s.spells[0].is_ready = false
-	solved = find_solution(s, p)
+	s.spells[0].isReady = false
+	solved = findSolution(s, p)
 	// if solved.turns != ['REST', 'CAST 0', 'BREW 0']:
-	//   print("Failed: test_find_solution: v4: wrong turns returned")
+	// print("Failed: "+testName+": v4: wrong turns returned")
 
 	p.delta = [4]int{-1, -1, 0, 0}
 	s.spells = append(s.spells, Spell{})
 	s.spells[1].delta = [4]int{-1, 1, 0, 0}
 	s.spells[1].id = 1
-	solved = find_solution(s, p)
+	solved = findSolution(s, p)
 	// if solved.turns != ['REST', 'CAST 0', 'CAST 1', 'BREW 0']:
-	//   print("Failed: test_find_solution: v5: wrong turns returned")
+	// print("Failed: "+testName+": v5: wrong turns returned")
 
 	// s = bot.State()
 	// s.inv = [3,0,0,0]
 
 	// s.spells.append(bot.Spell())
 	// s.spells[0].delta = [2,0,0,0]
-	// s.spells[0].is_ready = True
+	// s.spells[0].isReady = True
 	// s.spells[0].id = 0
 
 	// s.spells.append(bot.Spell())
 	// s.spells[1].delta = [-1,1,0,0]
-	// s.spells[1].is_ready = True
+	// s.spells[1].isReady = True
 	// s.spells[1].id = 1
 
 	// s.spells.append(bot.Spell())
 	// s.spells[2].delta = [0,-1,1,0]
-	// s.spells[2].is_ready = True
+	// s.spells[2].isReady = True
 	// s.spells[2].id = 2
 
 	// s.spells.append(bot.Spell())
 	// s.spells[3].delta = [0,0,-1,1]
-	// s.spells[3].is_ready = True
+	// s.spells[3].isReady = True
 	// s.spells[3].id = 3
 
 	// p = bot.Potion()
 	// p.delta = [0,-4,0,0]
 	// print('main test is here ->')
-	// solved = bot.find_solution(s, p)
+	// solved = bot.findSolution(s, p)
 	// print(solved.turns)
 	// # s.spells.append(bot.Spell())
 	// # s.spells[1].delta = [-1,1,0,0]
-	// # s.spells[1].is_ready = True
+	// # s.spells[1].isReady = True
 }
 
-func Test5(t *testing.T) {
+func TestRealLifeSearch(t *testing.T) {
 	start := time.Now()
 
 	s := State{}
 
 	s.spells = append(s.spells, Spell{})
 	s.spells[0].delta = [4]int{2, 0, 0, 0}
-	s.spells[0].is_ready = true
+	s.spells[0].isReady = true
 	s.spells[0].id = 0
 
 	s.spells = append(s.spells, Spell{})
 	s.spells[1].delta = [4]int{-1, 1, 0, 0}
-	s.spells[1].is_ready = true
+	s.spells[1].isReady = true
 	s.spells[1].id = 1
 
 	s.spells = append(s.spells, Spell{})
 	s.spells[2].delta = [4]int{0, -1, 1, 0}
-	s.spells[2].is_ready = true
+	s.spells[2].isReady = true
 	s.spells[2].id = 2
 
 	s.spells = append(s.spells, Spell{})
 	s.spells[3].delta = [4]int{0, 0, -1, 1}
-	s.spells[3].is_ready = true
+	s.spells[3].isReady = true
 	s.spells[3].id = 3
 
 	s.spells = append(s.spells, Spell{})
-	s.spells[4].delta = [4]int{3, 0, 0, 0}
-	s.spells[4].is_ready = true
+	s.spells[4].delta = [4]int{-1, 1, 0, 0}
+	s.spells[4].isReady = true
+	s.spells[4].isRepeatable = true
 	s.spells[4].id = 4
 
-	s.spells = append(s.spells, Spell{})
-	s.spells[5].delta = [4]int{0, 0, 0, 1}
-	s.spells[5].is_ready = true
-	s.spells[5].id = 5
+	// s.spells = append(s.spells, Spell{})
+	// s.spells[5].delta = [4]int{0, 0, 0, 1}
+	// s.spells[5].isReady = true
+	// s.spells[5].id = 5
 
-	s.spells = append(s.spells, Spell{})
-	s.spells[6].delta = [4]int{3, -1, 0, 0}
-	s.spells[6].is_ready = true
-	s.spells[6].id = 6
+	// s.spells = append(s.spells, Spell{})
+	// s.spells[6].delta = [4]int{3, -1, 0, 0}
+	// s.spells[6].isReady = true
+	// s.spells[6].id = 6
 
 	s.inv = [4]int{3, 0, 0, 1}
 
 	p := Potion{}
-	p.delta = [4]int{0, 0, 0, -5}
+	p.delta = [4]int{0, -2, 0, 0}
 	fmt.Println("main test is here ->")
-	solved := find_solution(s, p)
+	solved := findSolution(s, p)
 	fmt.Println(len(solved.turns), solved.turns)
 	elapsed := time.Since(start)
 
