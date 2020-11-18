@@ -22,7 +22,6 @@ func i2s(n int) string {
 
 // Potion is a potion =/
 type Potion struct {
-	dist  int
 	id    int
 	price int
 	delta [4]int
@@ -30,10 +29,9 @@ type Potion struct {
 
 // Spell is a spell =/
 type Spell struct {
-	delta        [4]int
 	id           int
-	isReady      bool
 	isRepeatable bool
+	delta        [4]int
 }
 
 func (s Spell) copy() Spell {
@@ -42,23 +40,22 @@ func (s Spell) copy() Spell {
 		t.delta[i] = s.delta[i]
 	}
 	t.id = s.id
-	t.isReady = s.isReady
 	t.isRepeatable = s.isRepeatable
 	return t
 }
 
 // State is a game state =/
 type State struct {
-	inv    [4]int
-	spells []Spell
-	turns  []string
-	dist   int
+	inv          [4]int
+	turns        []string
+	dist         int
+	isSpellReady []bool
 }
 
 func (s State) copy() State {
 	t := State{}
-	for _, sp := range s.spells {
-		t.spells = append(t.spells, sp.copy())
+	for i := range s.isSpellReady {
+		t.isSpellReady = append(t.isSpellReady, s.isSpellReady[i])
 	}
 	for i := range s.inv {
 		t.inv[i] = s.inv[i]
@@ -83,11 +80,12 @@ func isEnoughIngredients(state State, potion Potion) bool {
 	return true
 }
 
-func tryCast(state State, spellID int, castsNumber int) (State, bool) {
+// TODO put is ready check back in here
+func tryCast(state State, spell Spell, castsTimes int) (State, bool) {
 	newState := state.copy()
 	total := 0
 	for i := range state.inv {
-		newState.inv[i] += castsNumber * newState.spells[spellID].delta[i]
+		newState.inv[i] += castsTimes * spell.delta[i]
 		if newState.inv[i] < 0 {
 			return state.copy(), false
 		}
@@ -96,34 +94,34 @@ func tryCast(state State, spellID int, castsNumber int) (State, bool) {
 	if total > 10 {
 		return state.copy(), false
 	}
-	newState.spells[spellID].isReady = false
 	return newState, true
 }
 
 func rest(state State) State {
 	newState := state.copy()
-	for i := range newState.spells {
-		newState.spells[i].isReady = true
+	for i := range newState.isSpellReady {
+		newState.isSpellReady[i] = true
 	}
 	return newState
 }
 
-func getStates(state State) []State {
+func getStates(state State, spells []Spell) []State {
 	newStates := []State{}
-	for i := range state.spells {
-		if state.spells[i].isReady {
-			newState, isOk := tryCast(state, i, 1)
+	for i := range spells {
+		if state.isSpellReady[i] {
+			newState, isOk := tryCast(state, spells[i], 1)
 			if isOk {
-				newState.addTurn("CAST " + i2s(newState.spells[i].id))
+				newState.addTurn("CAST " + i2s(spells[i].id))
 				newStates = append(newStates, newState)
 			}
-			if state.spells[i].isRepeatable {
-				newState, isOk := tryCast(state, i, 2)
+			if spells[i].isRepeatable {
+				newState, isOk := tryCast(state, spells[i], 2)
 				if isOk {
-					newState.addTurn("CAST " + i2s(newState.spells[i].id) + " " + i2s(2))
+					newState.addTurn("CAST " + i2s(spells[i].id) + " " + i2s(2))
 					newStates = append(newStates, newState)
 				}
 			}
+			newState.isSpellReady[i] = false
 		} else {
 			newState := rest(state)
 			newState.addTurn("REST")
@@ -199,9 +197,13 @@ func (t Timer) isNextCheckAfter(dt time.Duration) bool {
 	return t.lastElapsed.Microseconds()+t.avgElapsedMUS > dt.Microseconds()
 }
 
-func findSolution(state State, potion Potion) State {
+func (t Timer) getTotalElapsed() time.Duration {
+	return time.Since(t.start)
+}
+
+func findSolution(state State, spells []Spell, potion Potion) (State, time.Duration) {
 	timer := Timer{}
-	timer.init(len(state.spells))
+	timer.init(len(spells))
 
 	allStates := []State{}
 	allStates = append(allStates, state.copy())
@@ -209,7 +211,7 @@ func findSolution(state State, potion Potion) State {
 	if isEnoughIngredients(allStates[0], potion) {
 		allStates[0].addTurn("BREW " + i2s(potion.id))
 		dp(" <> already at solution ")
-		return allStates[0]
+		return allStates[0], timer.getTotalElapsed()
 	}
 	allStates[0].dist = getDistance(allStates[0], potion)
 	minDist := allStates[0].dist
@@ -224,142 +226,137 @@ func findSolution(state State, potion Potion) State {
 			// dp(elapsed, elapsed.Microseconds(), avgElapsed, elapsed.Microseconds()+avgElapsed)
 		}
 		if len(allStates) == 0 {
-			return state
+			return state, timer.getTotalElapsed()
 		}
 		// dp(i, all_states[0].inv, all_states[0].turns, all_states[0].dist, minDist)
 		// time.Sleep(time.Millisecond * 100)
-		// if allStates[0].dist <= minDist {
-		newStates := getStates(allStates[0])
-		for _, s := range newStates {
-			s.dist = getDistance(s, potion)
-			if s.dist <= minDist {
-				allStates = append(allStates, s)
-				minDist = s.dist
-			}
-			// dp(i, s.inv, s.turns, s.dist, minDist)
-			if isEnoughIngredients(s, potion) {
-				s.addTurn("BREW " + i2s(potion.id))
+		if allStates[0].dist <= minDist {
+			newStates := getStates(allStates[0], spells)
+			for _, s := range newStates {
+				s.dist = getDistance(s, potion)
+				if s.dist <= minDist {
+					allStates = append(allStates, s)
+					minDist = s.dist
+				}
 				// dp(i, s.inv, s.turns, s.dist, minDist)
-				dp(" >> found solution in : " + i2s(i) + " steps")
-				return s
+				if isEnoughIngredients(s, potion) {
+					s.addTurn("BREW " + i2s(potion.id))
+					// dp(i, s.inv, s.turns, s.dist, minDist)
+					dp(" >> found solution in : " + i2s(i) + " steps")
+					return s, timer.getTotalElapsed()
+				}
 			}
 		}
-		// }
 		allStates = allStates[1:]
 		i++
 	}
 	dp(" >> search size : ", i, timer.lastElapsed)
-	return state
+	return state, timer.getTotalElapsed()
+}
+
+func readInput() (state State, spells []Spell, learnings []Spell, potions []Potion) {
+	var actionCount int
+	fmt.Scan(&actionCount)
+	for i := 0; i < actionCount; i++ {
+		var actionID int
+		var actionType string
+		var delta0, delta1, delta2, delta3, price, tomeIndex, taxCount int
+		var castable, repeatable bool
+		var _castable, _repeatable int
+		fmt.Scan(&actionID, &actionType, &delta0, &delta1, &delta2, &delta3, &price, &tomeIndex, &taxCount, &_castable, &_repeatable)
+		castable = _castable != 0
+		repeatable = _repeatable != 0
+		if actionType == "BREW" {
+			potions = append(potions,
+				Potion{actionID, price, [4]int{delta0, delta1, delta2, delta3}})
+		}
+		if actionType == "CAST" {
+			spells = append(spells,
+				Spell{actionID, repeatable, [4]int{delta0, delta1, delta2, delta3}})
+			state.isSpellReady = append(state.isSpellReady, castable)
+		}
+		if actionType == "LEARN" {
+			learnings = append(learnings,
+				Spell{actionID, repeatable, [4]int{delta0, delta1, delta2, delta3}})
+		}
+	}
+	for i := 0; i < 2; i++ {
+		var inv0, inv1, inv2, inv3, score int
+		fmt.Scan(&inv0, &inv1, &inv2, &inv3, &score)
+		if i == 0 {
+			state.inv = [4]int{inv0, inv1, inv2, inv3}
+		}
+	}
+	return
+}
+
+func decideLearning(learnings []Spell, roundNumber int, canLearnAgain int) (forceLearn bool, learnID int) {
+	for i := range learnings {
+		if (roundNumber < 40) && (!forceLearn) &&
+			(learnings[i].delta[0] >= 0) &&
+			(learnings[i].delta[1] >= 0) &&
+			(learnings[i].delta[2] >= 0) &&
+			(learnings[i].delta[3] >= 0) {
+			forceLearn = true
+			learnID = i
+		}
+	}
+	if (roundNumber == canLearnAgain) && (!forceLearn) {
+		forceLearn = true
+		learnID = 0
+	}
+	return
 }
 
 func main() {
 	learningTimeOut := 20
 	canLearnAgain := learningTimeOut
 	roundNumber := 0
+	deepCheckLearningID := 0
 	for {
-		forceLearn := false
 		learnID := -1
+		totalElapsed := time.Duration(0)
 
-		var state State
-		potions := []Potion{}
-		spellsToLearn := []Spell{}
-
-		var actionCount int
-		fmt.Scan(&actionCount)
-		for i := 0; i < actionCount; i++ {
-			var actionID int
-			var actionType string
-			var delta0, delta1, delta2, delta3, price, tomeIndex, taxCount int
-			var castable, repeatable bool
-			var _castable, _repeatable int
-			fmt.Scan(&actionID, &actionType, &delta0, &delta1, &delta2, &delta3, &price, &tomeIndex, &taxCount, &_castable, &_repeatable)
-			castable = _castable != 0
-			repeatable = _repeatable != 0
-			// dp(" ?? ", actionId, actionType, delta0, delta1, delta2, delta3, price, tomeIndex, taxCount, _castable, _repeatable)
-			if actionType == "BREW" {
-				var p Potion
-				p.delta = [4]int{delta0, delta1, delta2, delta3}
-				p.price = price
-				p.id = actionID
-				potions = append(potions, p)
-			}
-			if actionType == "CAST" {
-				var s Spell
-				s.delta = [4]int{delta0, delta1, delta2, delta3}
-				s.id = actionID
-				s.isReady = castable
-				s.isRepeatable = repeatable
-				state.spells = append(state.spells, s)
-			}
-			if actionType == "LEARN" {
-				spellsToLearn = append(spellsToLearn,
-					Spell{[4]int{delta0, delta1, delta2, delta3}, actionID, castable, repeatable})
-				if (!forceLearn) &&
-					(roundNumber < 50) &&
-					(delta0 >= 0) &&
-					(delta1 >= 0) &&
-					(delta2 >= 0) &&
-					(delta3 >= 0) {
-					forceLearn = true
-					learnID = len(spellsToLearn) - 1
-				}
-			}
-		}
-		for i := 0; i < 2; i++ {
-			var inv0, inv1, inv2, inv3, score int
-			fmt.Scan(&inv0, &inv1, &inv2, &inv3, &score)
-			if i == 0 {
-				state.inv = [4]int{inv0, inv1, inv2, inv3}
-			}
-		}
+		state, spells, learnings, potions := readInput()
+		forceLearn, learnID := decideLearning(learnings, roundNumber, canLearnAgain)
 
 		turn := "WAIT"
 		d1 := 10000
 		c1 := 1
-		if (roundNumber < 6) && (!forceLearn) {
-			forceLearn = true
-			learnID = 0
-		}
 		if forceLearn {
 			learnTax := learnID
 			if state.inv[0] >= learnTax {
-				turn = "LEARN " + i2s(spellsToLearn[learnID].id)
+				turn = "LEARN " + i2s(learnings[learnID].id)
 				canLearnAgain = roundNumber + learningTimeOut
 			} else {
 				useSpellID := -1
-				for i := range state.spells {
-					if (state.spells[i].delta[0] > 0) &&
-						(state.spells[i].isReady) &&
-						(state.spells[i].delta[1] == 0) &&
-						(state.spells[i].delta[2] == 0) &&
-						(state.spells[i].delta[3] == 0) {
+				for i := range spells {
+					if (spells[i].delta[0] > 0) &&
+						(state.isSpellReady[i]) &&
+						(spells[i].delta[1] == 0) &&
+						(spells[i].delta[2] == 0) &&
+						(spells[i].delta[3] == 0) {
 						if useSpellID == -1 {
 							useSpellID = i
 						} else {
-							if state.spells[i].delta[0] > state.spells[useSpellID].delta[0] {
+							if spells[i].delta[0] > spells[useSpellID].delta[0] {
 								useSpellID = i
 							}
 						}
 					}
 				}
 				if useSpellID != -1 {
-					turn = "CAST " + i2s(state.spells[useSpellID].id)
-				} else {
-					turn = "REST"
+					turn = "CAST " + i2s(spells[useSpellID].id)
 				}
 			}
-		} else {
-			// prices := [5]int{}
-			// for i, p := range potions {
-			// 	prices[i] = p.price
-			// }
-			// sort.Ints(prices[:])
-			// meanPrice := prices[2]
+		}
+
+		solvedPotions := []State{}
+		if turn == "WAIT" {
 			for _, p := range potions {
-				// if p.price < meanPrice {
-				// 	continue
-				// }
-				solved := findSolution(state, p)
+				solved, elapsed := findSolution(state, spells, p)
+				solvedPotions = append(solvedPotions, solved)
+				totalElapsed += elapsed
 				if len(solved.turns) != 0 {
 					d2 := len(solved.turns)
 					c2 := p.price
@@ -367,7 +364,7 @@ func main() {
 					if math.Abs(float64(d1-d2)) > 2.0 {
 						dd := float64(d1) / float64(d2)
 						dc := float64(c1) / float64(c2)
-						if dc < 2*dd {
+						if dc < dd {
 							turn = solved.turns[0]
 							d1 = d2
 							c1 = c2
@@ -385,14 +382,14 @@ func main() {
 			}
 			if turn == "WAIT" {
 				if roundNumber > canLearnAgain {
-					turn = "LEARN " + i2s(spellsToLearn[0].id)
+					turn = "LEARN " + i2s(learnings[0].id)
 					canLearnAgain += learningTimeOut
 				} else {
-					for i := range state.spells {
-						if state.spells[i].isReady {
-							_, isOk := tryCast(state, i, 1)
+					for i := range spells {
+						if state.isSpellReady[i] {
+							_, isOk := tryCast(state, spells[i], 1)
 							if isOk {
-								turn = "CAST " + i2s(state.spells[i].id)
+								turn = "CAST " + i2s(spells[i].id)
 								break
 							}
 						}
@@ -403,6 +400,41 @@ func main() {
 				}
 			}
 		}
+
+		dp("going to check #", deepCheckLearningID)
+		spells = append(spells, learnings[deepCheckLearningID])
+		state.isSpellReady = append(state.isSpellReady, false)
+		iPotion := 0
+		bestSpeedUp := 0
+		for (totalElapsed < 50*time.Millisecond) && (iPotion < len(solvedPotions)) {
+			if len(solvedPotions[iPotion].turns) > 0 {
+				solved, elapsed := findSolution(state, spells, potions[iPotion])
+				if len(solved.turns) != 0 {
+					speedUp := len(solvedPotions[iPotion].turns) - len(solved.turns)
+					if speedUp > bestSpeedUp {
+						bestSpeedUp = speedUp
+					}
+				}
+				dp(potions[iPotion].id, len(solvedPotions[iPotion].turns), len(solved.turns))
+				totalElapsed += elapsed
+				iPotion++
+			} else {
+				iPotion++
+			}
+		}
+		if bestSpeedUp != 0 {
+			if state.inv[0] >= deepCheckLearningID {
+				turn = "LEARN " + i2s(learnings[deepCheckLearningID].id)
+				deepCheckLearningID = 0
+			}
+		} else {
+			deepCheckLearningID++
+			if deepCheckLearningID >= len(learnings) {
+				deepCheckLearningID = 0
+			}
+		}
+
+		dp(totalElapsed)
 		fmt.Println(turn)
 		roundNumber++
 	}
