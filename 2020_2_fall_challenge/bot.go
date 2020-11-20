@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"strconv"
 	"time"
@@ -230,23 +229,23 @@ func findSolution(state State, spells []Spell, potion Potion) (State, time.Durat
 		}
 		// dp(i, all_states[0].inv, all_states[0].turns, all_states[0].dist, minDist)
 		// time.Sleep(time.Millisecond * 100)
-		if allStates[0].dist <= minDist {
-			newStates := getStates(allStates[0], spells)
-			for _, s := range newStates {
-				s.dist = getDistance(s, potion)
-				if s.dist <= minDist {
-					allStates = append(allStates, s)
-					minDist = s.dist
-				}
+		// if allStates[0].dist <= minDist {
+		newStates := getStates(allStates[0], spells)
+		for _, s := range newStates {
+			s.dist = getDistance(s, potion)
+			if s.dist <= minDist {
+				allStates = append(allStates, s)
+				minDist = s.dist
+			}
+			// dp(i, s.inv, s.turns, s.dist, minDist)
+			if isEnoughIngredients(s, potion) {
+				s.addTurn("BREW " + i2s(potion.id))
 				// dp(i, s.inv, s.turns, s.dist, minDist)
-				if isEnoughIngredients(s, potion) {
-					s.addTurn("BREW " + i2s(potion.id))
-					// dp(i, s.inv, s.turns, s.dist, minDist)
-					dp(" >> found solution in : " + i2s(i) + " steps")
-					return s, timer.getTotalElapsed()
-				}
+				dp(" >> found solution in : " + i2s(i) + " steps")
+				return s, timer.getTotalElapsed()
 			}
 		}
+		// }
 		allStates = allStates[1:]
 		i++
 	}
@@ -254,7 +253,7 @@ func findSolution(state State, spells []Spell, potion Potion) (State, time.Durat
 	return state, timer.getTotalElapsed()
 }
 
-func readInput() (state State, spells []Spell, learnings []Spell, potions []Potion) {
+func readInput() (state State, spells []Spell, learnings []Spell, potions []Potion, myScore int, opScore int) {
 	var actionCount int
 	fmt.Scan(&actionCount)
 	for i := 0; i < actionCount; i++ {
@@ -285,6 +284,9 @@ func readInput() (state State, spells []Spell, learnings []Spell, potions []Poti
 		fmt.Scan(&inv0, &inv1, &inv2, &inv3, &score)
 		if i == 0 {
 			state.inv = [4]int{inv0, inv1, inv2, inv3}
+			myScore = score
+		} else {
+			opScore = score
 		}
 	}
 	return
@@ -292,7 +294,7 @@ func readInput() (state State, spells []Spell, learnings []Spell, potions []Poti
 
 func decideLearning(learnings []Spell, roundNumber int, canLearnAgain int) (forceLearn bool, learnID int) {
 	for i := range learnings {
-		if (roundNumber < 40) && (!forceLearn) &&
+		if (roundNumber < 30) && (!forceLearn) &&
 			(learnings[i].delta[0] >= 0) &&
 			(learnings[i].delta[1] >= 0) &&
 			(learnings[i].delta[2] >= 0) &&
@@ -309,20 +311,24 @@ func decideLearning(learnings []Spell, roundNumber int, canLearnAgain int) (forc
 }
 
 func main() {
-	learningTimeOut := 20
+	learningTimeOut := 10
 	canLearnAgain := learningTimeOut
 	roundNumber := 0
 	deepCheckLearningID := 0
+	needToChoosePotion := true
+	chosenPotionID := -1
+	brewedPotions := 0
 	for {
 		learnID := -1
 		totalElapsed := time.Duration(0)
 
-		state, spells, learnings, potions := readInput()
+		state, spells, learnings, potions, myScore, opScore := readInput()
 		forceLearn, learnID := decideLearning(learnings, roundNumber, canLearnAgain)
+		if brewedPotions > 3 {
+			forceLearn = false
+		}
 
 		turn := "WAIT"
-		d1 := 10000
-		c1 := 1
 		if forceLearn {
 			learnTax := learnID
 			if state.inv[0] >= learnTax {
@@ -351,34 +357,82 @@ func main() {
 			}
 		}
 
-		solvedPotions := []State{}
+		solvedPotions := map[int]State{}
 		if turn == "WAIT" {
-			for _, p := range potions {
-				solved, elapsed := findSolution(state, spells, p)
-				solvedPotions = append(solvedPotions, solved)
-				totalElapsed += elapsed
-				if len(solved.turns) != 0 {
-					d2 := len(solved.turns)
-					c2 := p.price
-
-					if math.Abs(float64(d1-d2)) > 2.0 {
-						dd := float64(d1) / float64(d2)
-						dc := float64(c1) / float64(c2)
-						if dc < dd {
+			// if needToChosePotion
+			// go throu each potion and choose the best one on a regular basis
+			// if alreade chosen a potion
+			// if potion is still in there
+			// calc distance for that potion first
+			// go throgh each potion and calc its distance (there might be a new one, or new spell just kick in)
+			// if for any potion the distance is less or equal but price is equal or higher
+			// chose this new potion
+			d1 := 10000
+			c1 := 1
+			minPrice := 0
+			if brewedPotions > 3 {
+				needToChoosePotion = true
+				minPrice = opScore - myScore
+			}
+			if !needToChoosePotion {
+				isPotionStillIn := false
+				for _, p := range potions {
+					if p.id == chosenPotionID {
+						isPotionStillIn = true
+						solved, elapsed := findSolution(state, spells, p)
+						totalElapsed += elapsed
+						dp(" >> ", p.id, p.price, len(solved.turns), solved.turns)
+						if len(solved.turns) != 0 {
+							solvedPotions[p.id] = solved
 							turn = solved.turns[0]
-							d1 = d2
-							c1 = c2
-						}
-						dp(" >> ", p.id, dc, dd)
-					} else {
-						if c1 < c2 {
-							turn = solved.turns[0]
-							d1 = d2
-							c1 = c2
+							d1 = len(solved.turns)
+							c1 = p.price
+						} else {
+							needToChoosePotion = true
 						}
 					}
 				}
+				if !isPotionStillIn {
+					needToChoosePotion = true
+					d1 = 10000
+					c1 = 1
+				}
+			}
+			for _, p := range potions {
+				if !needToChoosePotion && (p.id == chosenPotionID) {
+					continue
+				}
+				if p.price < minPrice {
+					continue
+				}
+				solved, elapsed := findSolution(state, spells, p)
+				solvedPotions[p.id] = solved
+				totalElapsed += elapsed
 				dp(" >> ", p.id, p.price, len(solved.turns), solved.turns)
+				if len(solved.turns) != 0 {
+					d2 := len(solved.turns)
+					c2 := p.price
+					if needToChoosePotion {
+						dd := float64(d1) / float64(d2)
+						dc := float64(c1) / float64(c2)
+						dp(" >> ", p.id, dc, dd)
+						if dc < dd {
+							d1 = d2
+							c1 = c2
+							turn = solved.turns[0]
+							chosenPotionID = p.id
+							dp(" >> going to brew #", p.id)
+						}
+					} else {
+						if (d2 <= d1) && (c2 >= c1) {
+							d1 = d2
+							c1 = c2
+							turn = solved.turns[0]
+							chosenPotionID = p.id
+							dp(" >> switching to other potion #", p.id)
+						}
+					}
+				}
 			}
 			if turn == "WAIT" {
 				if roundNumber > canLearnAgain {
@@ -398,6 +452,9 @@ func main() {
 						turn = "REST"
 					}
 				}
+			} else {
+				needToChoosePotion = false
+				dp(" >> Aim potion is #", chosenPotionID)
 			}
 		}
 
@@ -407,15 +464,17 @@ func main() {
 		iPotion := 0
 		bestSpeedUp := 0
 		for (totalElapsed < 50*time.Millisecond) && (iPotion < len(solvedPotions)) {
-			if len(solvedPotions[iPotion].turns) > 0 {
+			currentPotionID := potions[iPotion].id
+			currentState := solvedPotions[currentPotionID]
+			if len(currentState.turns) > 0 {
 				solved, elapsed := findSolution(state, spells, potions[iPotion])
 				if len(solved.turns) != 0 {
-					speedUp := len(solvedPotions[iPotion].turns) - len(solved.turns)
+					speedUp := len(currentState.turns) - len(solved.turns)
 					if speedUp > bestSpeedUp {
 						bestSpeedUp = speedUp
 					}
 				}
-				dp(potions[iPotion].id, len(solvedPotions[iPotion].turns), len(solved.turns))
+				dp(potions[iPotion].id, len(currentState.turns), len(solved.turns))
 				totalElapsed += elapsed
 				iPotion++
 			} else {
@@ -435,6 +494,10 @@ func main() {
 		}
 
 		dp(totalElapsed)
+		if turn[:4] == "BREW" {
+			needToChoosePotion = true
+			brewedPotions++
+		}
 		fmt.Println(turn)
 		roundNumber++
 	}
