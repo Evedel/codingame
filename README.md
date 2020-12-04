@@ -10,3 +10,9 @@
 738 / 7258 = 10%
 
 <img src="https://github.com/Evedel/Codingame/blob/master/2020_1_ocean_of_code/2020_1_ooc.PNG" width="750" height="200">
+
+# 2020 Fall Challenge
+
+605 / 6419 = 9.4%
+
+<img src="https://github.com/Evedel/Codingame/blob/master/2020_1_ocean_of_code/2020_2.png" width="750">

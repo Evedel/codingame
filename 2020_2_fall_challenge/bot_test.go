@@ -231,7 +231,7 @@ func TestFindSolution(t *testing.T) {
 }
 
 func TestRealLifeSearch(t *testing.T) {
-	start := time.Now()
+	// start := time.Now()
 	s := State{}
 	sps := []Spell{}
 
@@ -275,14 +275,69 @@ func TestRealLifeSearch(t *testing.T) {
 
 	p := Potion{}
 	p.delta = [4]int{0, -2, -2, -2}
-	fmt.Println("main test is here ->")
-	solved, _ := findSolution(s, sps, p)
-	fmt.Println(len(solved.turns), solved.turns)
-	elapsed := time.Since(start)
+	// fmt.Println("main test is here ->")
+	// solved, _ := findSolution(s, sps, p)
+	// fmt.Println(len(solved.turns), solved.turns)
+	// elapsed := time.Since(start)
 
-	fmt.Println(elapsed)
+	// fmt.Println(elapsed)
 	// < 10 ms
 }
 
-// 369 -- 15 steps -- my
-// 445 -- 14 steps -- sq
+func TestGetStatesV2(t *testing.T) {
+	state := State{}
+	spells := []Spell{}
+	potions := []Potion{}
+	states := getStatesV2(state, spells, potions)
+	if len(states) != 0 {
+		t.Error("should be empty")
+	}
+
+	state.inv = [4]int{1, 0, 0, 0}
+	potions = append(potions, Potion{0, 0, [4]int{-1, 0, 0, 0}, 0})
+	state.isPotionBrewed = append(state.isPotionBrewed, true)
+	states = getStatesV2(state, spells, potions)
+	if len(states) != 0 {
+		t.Error("should be empty")
+	}
+	state.isPotionBrewed[0] = false
+	states = getStatesV2(state, spells, potions)
+	if (len(states) != 1) && (len(states[0].turns) != 1) && (states[0].turns[0] != "BREW 0") {
+		t.Error("something went wrong", states)
+	}
+}
+
+func TestFindSolutionV2(t *testing.T) {
+	state := State{}
+	potions := []Potion{}
+	spells := []Spell{}
+	timeLimit := time.Millisecond * 25
+
+	state.inv = [4]int{3, 0, 0, 0}
+
+	potions = append(potions, Potion{1, 11, [4]int{-3, 0, -2, 0}, 0})
+	potions = append(potions, Potion{2, 16, [4]int{-2, -2, 0, -2}, 0})
+	potions = append(potions, Potion{3, 12, [4]int{0, -2, -1, -1}, 0})
+	potions = append(potions, Potion{4, 12, [4]int{-1, -1, -1, -1}, 0})
+	potions = append(potions, Potion{5, 14, [4]int{0, 0, -2, -2}, 0})
+	state.isPotionBrewed = append(state.isPotionBrewed, false)
+	state.isPotionBrewed = append(state.isPotionBrewed, false)
+	state.isPotionBrewed = append(state.isPotionBrewed, false)
+	state.isPotionBrewed = append(state.isPotionBrewed, false)
+	state.isPotionBrewed = append(state.isPotionBrewed, false)
+
+	spells = append(spells, Spell{1, false, [4]int{2, 0, 0, 0}})
+	spells = append(spells, Spell{2, false, [4]int{-1, 1, 0, 0}})
+	spells = append(spells, Spell{3, false, [4]int{0, -1, 1, 0}})
+	spells = append(spells, Spell{4, false, [4]int{0, 0, -1, 1}})
+	// spells = append(spells, Spell{5, false, [4]int{0, 0, 0, 1}})
+	state.isSpellReady = append(state.isSpellReady, true)
+	state.isSpellReady = append(state.isSpellReady, true)
+	state.isSpellReady = append(state.isSpellReady, true)
+	state.isSpellReady = append(state.isSpellReady, true)
+	// state.isSpellReady = append(state.isSpellReady, true)
+
+	state, elapsed := findSolutionV2(state, potions, spells, timeLimit)
+	fmt.Println(state)
+	fmt.Println(elapsed)
+}
