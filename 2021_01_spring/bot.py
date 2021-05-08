@@ -25,7 +25,10 @@ while True:
     opp_score = int(inputs[1])  # opponent's score
     opp_is_waiting = inputs[2] != "0"  # whether your opponent is asleep until the next day
     number_of_trees = int(input())  # the current amount of trees
-    min_index = 999
+    max_index = 0
+    max_size = 0
+    size_2_trees = 0
+    size_3_trees = 0
     for i in range(number_of_trees):
         inputs = input().split()
         cell_index = int(inputs[0])  # location of this tree
@@ -33,14 +36,24 @@ while True:
         is_mine = inputs[2] != "0"  # 1 if this is your tree
         is_dormant = inputs[3] != "0"  # 1 if this tree is dormant
         if is_mine:
-            if cell_index < min_index:
-                min_index = cell_index
+            if size == 2:
+                size_2_trees += 1
+            if size == 3:
+                size_3_trees += 1
+
+            if size > max_size:
+                max_size = size
+                max_index = cell_index
     number_of_possible_actions = int(input())  # all legal actions
     for i in range(number_of_possible_actions):
         possible_action = input()  # try printing something from here to start with
 
     # GROW cellIdx | SEED sourceIdx targetIdx | COMPLETE cellIdx | WAIT <message>
-    if (min_index != 999) and (sun >= 4):
-        print("COMPLETE "+str(min_index))
+    if (max_size == 1) and (sun >= 3 + size_2_trees):
+        print("GROW "+str(max_index))
+    elif (max_size == 2) and (sun >= 7 + size_3_trees):
+        print("GROW "+str(max_index))
+    elif (max_size == 3) and (sun >= 4):
+        print("COMPLETE "+str(max_index))
     else:
         print("WAIT")
