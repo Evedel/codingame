@@ -5,13 +5,89 @@ debug = True
 def dp(s):
   if debug: print(s, file=sys.stderr, flush=True)
 
-number_of_cells = int(input())  # 37
+# will convert the hex tree into gorgeous matrux that can be printed into console
+# depth first recursive search
+# output example
+#
+# ...1.1.1.1...
+# ..1.0.2.2.1..
+# .1.2.3.3.2.1.
+# 1.2.3.3.3.2.1
+# .1.2.3.3.2.1.
+# ..1.2.2.0.1..
+# ...1.1.1.1...
+#
+def hex_to_matrix(cell,matrix,visited,index):
+  matrix[index[0]][index[1]] = str(cell.richness)
+  visited[cell.index] = True
+  for i in range(len(cell.neigh_cells)):
+    c = cell.neigh_cells[i]
+    d = cell.neigh_dir[i]
+    if not visited[c.index]:
+      next_index = index[:]
+      if d == 0:
+        next_index[1] += 2
+      if d == 1:
+        next_index[0] -= 1
+        next_index[1] += 1
+      if d == 2:
+        next_index[0] -= 1
+        next_index[1] -= 1
+      if d == 3:
+        next_index[1] -= 2
+      if d == 4:
+        next_index[0] += 1
+        next_index[1] -= 1
+      if d == 5:
+        next_index[0] += 1
+        next_index[1] += 1
+      matrix,visited = hex_to_matrix(c,matrix,visited,next_index)
+  return matrix,visited
+
+def print_matrix(matrix):
+  s = ""
+  for r in matrix:
+    for c in r:
+      s += c
+    s += '\n'
+  dp(s)
+
+class Cell:
+  def __init__(self):
+    self.neigh_cells = []
+    self.neigh_index = []
+    self.neigh_dir = []
+    self.index = 0
+    self.richness = 0
+
+indexed_cells = []
+
+number_of_cells = int(input())
 for i in range(number_of_cells):
-    # index: 0 is the center cell, the next cells spiral outwards
-    # richness: 0 if the cell is unusable, 1-3 for usable cells
-    # neigh_0: the index of the neighbouring cell for each direction
-    index, richness, neigh_0, neigh_1, neigh_2, neigh_3, neigh_4, neigh_5 = [int(j) for j in input().split()]
-    # dp(str(index)+" "+str(richness) + " "+str(neigh_0)+" "+str(neigh_1)+" "+str(neigh_2)+" "+str(neigh_3)+" "+str(neigh_4)+" "+str(neigh_5))
+  index, richness, neigh_0, neigh_1, neigh_2, neigh_3, neigh_4, neigh_5 = [int(j) for j in input().split()]
+  cell = Cell()
+  cell.index = index
+  cell.richness = richness
+  cell.neigh_index = [neigh_0, neigh_1, neigh_2, neigh_3, neigh_4, neigh_5]
+  indexed_cells.append(cell)
+
+for ic in range(len(indexed_cells)):
+  cell = indexed_cells[ic]
+  cell.neigh_cells = []
+  for i in range(len(cell.neigh_index)):
+    n = cell.neigh_index[i]
+    if n != -1:
+      cell.neigh_cells.append(indexed_cells[n])
+      cell.neigh_dir.append(i)
+
+arena = indexed_cells[0]
+
+line = ["." for i in range(13)]
+matrix = [line[:] for i in range(7)]
+visited = [False for i in range(37)]
+startindex = [3,6]
+matrix,visited = hex_to_matrix(arena,matrix,visited,startindex)
+print_matrix(matrix)
 
 # game loop
 while True:
