@@ -1,5 +1,6 @@
 import sys
 import math
+import random
 
 debug = True
 def dp(s):
@@ -63,6 +64,36 @@ class Cell:
     self.tree_size = 0
     self.is_mine = False
     self.is_dormant = False
+  
+  def copy(self):
+    cell = Cell()
+    self.neigh_cells = []
+    cell.neigh_index = self.neigh_index[:]
+    cell.neigh_dir = self.neigh_dir[:]
+    cell.index = self.index
+    cell.richness = self.richness
+    cell.is_tree = self.is_tree
+    cell.tree_size = self.tree_size
+    cell.is_mine = self.is_mine
+    cell.is_dormant = self.is_dormant
+    return cell
+
+  def clean(self):
+    self.is_tree = False
+    self.tree_size = 0
+    self.is_mine = False
+    self.is_dormant = False
+
+def clean(arena):
+  for c in arena:
+    c.clean()
+
+def copy_arena(indexed_cells):
+  indexed_cells_copy = []
+  for c in indexed_cells:
+    indexed_cells_copy.append(c.copy())
+  indexed_cells_copy = make_links(indexed_cells_copy)
+  return indexed_cells_copy
 
 def read_input_setup():
   indexed_cells = []
@@ -126,6 +157,59 @@ def read_input_turn(indexed_cells):
     possible_action = input()  # try printing something from here to start with
   return sun,indexed_cells
 
+def get_all_steps(arena,sun):
+  size_0_trees = 0
+  size_1_trees = 0
+  size_2_trees = 0
+  size_3_trees = 0
+
+  for c in arena:
+    if c.is_tree and c.is_mine:
+      if c.tree_size == 0:
+        size_0_trees += 1
+      if c.tree_size == 1:
+        size_1_trees += 1
+      if c.tree_size == 2:
+        size_2_trees += 1
+      if c.tree_size == 3:
+        size_3_trees += 1
+
+  steps = []
+  for c in arena:
+    if c.is_tree and c.is_mine:
+      if (c.tree_size == 1) and (sun >= 3 + size_2_trees):
+        steps.append("GROW "+str(c.index))
+      elif (c.tree_size == 2) and (sun >= 7 + size_3_trees):
+        steps.append("GROW "+str(c.index))
+      elif (c.tree_size == 3) and (sun >= 4):
+        steps.append("COMPLETE "+str(c.index))
+
+  steps.append("WAIT")
+  return steps
+
+# def apply_step():
+
+def get_best_step(arena,sun,depth):
+  if depth > 5:
+    return -1, {}
+
+  steps = get_all_steps(arena,sun)
+  dp(steps)
+  best_points = -1
+  best_step = random.choice(steps)
+  # for s in steps:
+  #   new_arena = apply_step(arena,s)
+  #   local_best_points,tmp = get_best_step(new_arena,sun,depth+1)
+  #   if local_best_points > best_points:
+  #     best_points = local_best_points
+  #     best_step = s[:]
+  return best_points,best_step
+
+def get_next_step(indexed_cells,sun):
+  points,step = get_best_step(indexed_cells,sun,0)
+
+  return step
+
 def main():
   indexed_cells = read_input_setup()
   indexed_cells = make_links(indexed_cells)
@@ -133,31 +217,10 @@ def main():
 
   # game loop
   while True:
+    clean(indexed_cells)
     sun,indexed_cells = read_input_turn(indexed_cells)
-
-    max_index = 0
-    max_size = 0
-    size_2_trees = 0
-    size_3_trees = 0
-    for c in indexed_cells:
-      if c.is_tree and c.is_mine:
-        if c.tree_size == 2:
-          size_2_trees += 1
-        if c.tree_size == 3:
-          size_3_trees += 1
-
-        if c.tree_size > max_size:
-          max_size = c.tree_size
-          max_index = c.index
-
-    if (max_size == 1) and (sun >= 3 + size_2_trees):
-      print("GROW "+str(max_index))
-    elif (max_size == 2) and (sun >= 7 + size_3_trees):
-      print("GROW "+str(max_index))
-    elif (max_size == 3) and (sun >= 4):
-      print("COMPLETE "+str(max_index))
-    else:
-      print("WAIT")
+    res = get_next_step(indexed_cells, sun)
+    print(res)
 
 if __name__ == "__main__":
   main()
