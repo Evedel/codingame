@@ -165,18 +165,24 @@ def read_input_turn(indexed_cells):
   number_of_possible_actions = int(input())  # all legal actions
   for i in range(number_of_possible_actions):
     possible_action = input()  # try printing something from here to start with
-  return sun,indexed_cells
+  return sun,day,indexed_cells
 
 def get_all_seed_steps(arena,cell):
   res = []
   c1 = cell
   for c2 in arena:
     if (not c2.is_tree) and (c2.richness > 0) and (c1.dist(c2) <= c1.tree_size):
-      res.append("SEED "+str(c1.index)+" "+str(c2.index))
+      min_dist = c1.tree_size
+      for c3 in arena:
+        if c3.is_tree:
+          dist = c2.dist(c3)
+          if dist < min_dist:
+            min_dist = dist
+      res.append(["SEED "+str(c1.index)+" "+str(c2.index), min_dist*c2.richness])
 
   return res
 
-def get_all_steps(arena,sun):
+def get_all_steps(arena,sun,day):
   size_0_trees = 0
   size_1_trees = 0
   size_2_trees = 0
@@ -193,33 +199,41 @@ def get_all_steps(arena,sun):
       if c.tree_size == 3:
         size_3_trees += 1
 
+  day_miltiplier = 0.05 if day < 18 else 1
+
   steps = []
   for c in arena:
     if c.is_tree and c.is_mine:
       if (size_0_trees <= sun) and (not c.is_dormant) and (c.tree_size != 0):
         steps += get_all_seed_steps(arena,c)
+      dp("here "+str(c.tree_size)+" "+str(1 + size_1_trees)+" "+str(sun))
       if (c.tree_size == 0) and (sun >= 1 + size_1_trees):
-        steps.append("GROW "+str(c.index))
-      if (c.tree_size == 1) and (sun >= 3 + size_2_trees):
-        steps.append("GROW "+str(c.index))
+        steps.append(["GROW "+str(c.index), 3*c.richness])
+      elif (c.tree_size == 1) and (sun >= 3 + size_2_trees):
+        steps.append(["GROW "+str(c.index), 6*c.richness])
       elif (c.tree_size == 2) and (sun >= 7 + size_3_trees):
-        steps.append("GROW "+str(c.index))
+        steps.append(["GROW "+str(c.index), 10*c.richness])
       elif (c.tree_size == 3) and (sun >= 4):
-        steps.append("COMPLETE "+str(c.index))
+        steps.append(["COMPLETE "+str(c.index), 20*c.richness*day_miltiplier])
 
-  steps.append("WAIT")
+  steps.append(["WAIT", 0])
   return steps
 
 # def apply_step():
 
-def get_best_step(arena,sun,depth):
+def get_best_step(arena,sun,day,depth):
   if depth > 5:
     return -1, {}
 
-  steps = get_all_steps(arena,sun)
+  steps = get_all_steps(arena,sun,day)
   dp(steps)
+
   best_points = -1
-  best_step = random.choice(steps)
+  best_step = []
+  for s in steps:
+    if s[1] > best_points:
+      best_step = s[0]
+      best_points = s[1]
   # for s in steps:
   #   new_arena = apply_step(arena,s)
   #   local_best_points,tmp = get_best_step(new_arena,sun,depth+1)
@@ -228,12 +242,14 @@ def get_best_step(arena,sun,depth):
   #     best_step = s[:]
   return best_points,best_step
 
-def get_next_step(indexed_cells,sun):
-  points,step = get_best_step(indexed_cells,sun,0)
+def get_next_step(indexed_cells,sun,day):
+  points,step = get_best_step(indexed_cells,sun,day,0)
 
   return step
 
 def main():
+  random.seed(18081991)
+
   indexed_cells = read_input_setup()
   indexed_cells = make_links(indexed_cells)
   print_arena(indexed_cells)
@@ -241,8 +257,8 @@ def main():
   # game loop
   while True:
     clean(indexed_cells)
-    sun,indexed_cells = read_input_turn(indexed_cells)
-    res = get_next_step(indexed_cells, sun)
+    sun,day,indexed_cells = read_input_turn(indexed_cells)
+    res = get_next_step(indexed_cells,sun,day)
     print(res)
 
 if __name__ == "__main__":
