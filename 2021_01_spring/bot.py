@@ -19,6 +19,9 @@ def dp(s):
 # ...1.1.1.1...
 #
 def hex_to_matrix(cell,matrix,visited,index):
+  cell.index_x = index[0]
+  cell.index_y = index[1]
+
   matrix[index[0]][index[1]] = str(cell.richness)
   visited[cell.index] = True
   for i in range(len(cell.neigh_cells)):
@@ -59,6 +62,8 @@ class Cell:
     self.neigh_index = []
     self.neigh_dir = []
     self.index = 0
+    self.index_x = 0
+    self.index_y = 0
     self.richness = 0
     self.is_tree = False
     self.tree_size = 0
@@ -83,6 +88,11 @@ class Cell:
     self.tree_size = 0
     self.is_mine = False
     self.is_dormant = False
+  
+  def dist(self,cell):
+    if abs(self.index_y - cell.index_y) < 2:
+      return abs(self.index_x - cell.index_x)
+    return (abs(self.index_x - cell.index_x) + abs(self.index_y - cell.index_y))/2
 
 def clean(arena):
   for c in arena:
@@ -157,6 +167,15 @@ def read_input_turn(indexed_cells):
     possible_action = input()  # try printing something from here to start with
   return sun,indexed_cells
 
+def get_all_seed_steps(arena,cell):
+  res = []
+  c1 = cell
+  for c2 in arena:
+    if (not c2.is_tree) and (c2.richness > 0) and (c1.dist(c2) <= c1.tree_size):
+      res.append("SEED "+str(c1.index)+" "+str(c2.index))
+
+  return res
+
 def get_all_steps(arena,sun):
   size_0_trees = 0
   size_1_trees = 0
@@ -177,6 +196,10 @@ def get_all_steps(arena,sun):
   steps = []
   for c in arena:
     if c.is_tree and c.is_mine:
+      if (size_0_trees <= sun) and (not c.is_dormant) and (c.tree_size != 0):
+        steps += get_all_seed_steps(arena,c)
+      if (c.tree_size == 0) and (sun >= 1 + size_1_trees):
+        steps.append("GROW "+str(c.index))
       if (c.tree_size == 1) and (sun >= 3 + size_2_trees):
         steps.append("GROW "+str(c.index))
       elif (c.tree_size == 2) and (sun >= 7 + size_3_trees):
