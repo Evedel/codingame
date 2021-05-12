@@ -7,61 +7,11 @@ debug = True
 def dp(s):
   if debug: print(s, file=sys.stderr, flush=True)
 
-# will convert the hex tree into gorgeous matrux that can be printed into console
-# depth first recursive search
-# output example
-#
-# ...1.1.1.1...
-# ..1.0.2.2.1..
-# .1.2.3.3.2.1.
-# 1.2.3.3.3.2.1
-# .1.2.3.3.2.1.
-# ..1.2.2.0.1..
-# ...1.1.1.1...
-#
-def hex_to_matrix(cell,matrix,visited,index):
-  cell.index_x = index[0]
-  cell.index_y = index[1]
-
-  matrix[index[0]][index[1]] = str(cell.richness)
-  visited[cell.index] = True
-  for i in range(len(cell.neigh_cells)):
-    c = cell.neigh_cells[i]
-    d = cell.neigh_dir[i]
-    if not visited[c.index]:
-      next_index = index[:]
-      if d == 0:
-        next_index[1] += 2
-      if d == 1:
-        next_index[0] -= 1
-        next_index[1] += 1
-      if d == 2:
-        next_index[0] -= 1
-        next_index[1] -= 1
-      if d == 3:
-        next_index[1] -= 2
-      if d == 4:
-        next_index[0] += 1
-        next_index[1] -= 1
-      if d == 5:
-        next_index[0] += 1
-        next_index[1] += 1
-      matrix,visited = hex_to_matrix(c,matrix,visited,next_index)
-  return matrix,visited
-
-def print_matrix(matrix):
-  s = ""
-  for r in matrix:
-    for c in r:
-      s += c
-    s += '\n'
-  dp(s)
-
 class Cell:
   def __init__(self):
-    self.neigh_cells = []
-    self.neigh_index = []
-    self.neigh_dir = []
+    self.neigh_cells: List[Cell] = []
+    self.neigh_index: List[int] = []
+    self.neigh_dir: List[int] = []
     self.index = 0
     self.index_x = 0
     self.index_y = 0
@@ -70,6 +20,7 @@ class Cell:
     self.tree_size = 0
     self.is_mine = False
     self.is_dormant = False
+    self.is_shadowed = False
   
   def copy(self):
     cell = Cell()
@@ -82,13 +33,15 @@ class Cell:
     cell.tree_size = self.tree_size
     cell.is_mine = self.is_mine
     cell.is_dormant = self.is_dormant
+    cell.is_shadowed = self.is_shadowed
     return cell
 
   def clean(self):
-    self.is_tree = False
     self.tree_size = 0
+    self.is_tree = False
     self.is_mine = False
     self.is_dormant = False
+    self.is_shadowed = False
   
   def dist(self,cell):
     if abs(self.index_y - cell.index_y) < 2:
@@ -112,6 +65,79 @@ class GameState:
     gs.nutrients = self.nutrients
     gs.day = self.day
     return gs
+
+# will convert the hex tree into gorgeous matrux that can be printed into console
+# depth first recursive search
+# output example
+#
+# ...1.1.1.1...
+# ..1.0.2.2.1..
+# .1.2.3.3.2.1.
+# 1.2.3.3.3.2.1
+# .1.2.3.3.2.1.
+# ..1.2.2.0.1..
+# ...1.1.1.1...
+#
+def convert_hex_to_matrix(cell:Cell,visited:List[bool],index:List[int]) -> List[List[str]]:
+  cell.index_x = index[0]
+  cell.index_y = index[1]
+
+  visited[cell.index] = True
+  for i in range(len(cell.neigh_cells)):
+    c = cell.neigh_cells[i]
+    d = cell.neigh_dir[i]
+    if not visited[c.index]:
+      next_index = index[:]
+      if d == 0:
+        next_index[1] += 2
+      if d == 1:
+        next_index[0] -= 1
+        next_index[1] += 1
+      if d == 2:
+        next_index[0] -= 1
+        next_index[1] -= 1
+      if d == 3:
+        next_index[1] -= 2
+      if d == 4:
+        next_index[0] += 1
+        next_index[1] -= 1
+      if d == 5:
+        next_index[0] += 1
+        next_index[1] += 1
+      visited = convert_hex_to_matrix(c,visited,next_index)
+  return visited
+
+def enumerate_hex_to_matrix(arena:List[Cell]):
+  visited = [False for i in range(37)]
+  starting_index = [3,6]
+  starting_cell = arena[0]
+  convert_hex_to_matrix(starting_cell,visited,starting_index)
+
+def print_matrix(matrix):
+  s = ""
+  for r in matrix:
+    for c in r:
+      s += c
+    s += '\n'
+  dp(s)
+
+def print_arena(arena:List[Cell]):
+  line = ["." for i in range(13)]
+  matrix = [line[:] for i in range(7)]
+
+  trees_shadowed = ["f", "t", "F", "T"]
+  trees_opened = ["n", "m", "N", "M"]
+  for a in arena:
+    dx = a.index_x
+    dy = a.index_y
+    matrix[dx][dy] = str(a.richness)
+    if a.is_tree:
+      if a.is_shadowed:
+        matrix[dx][dy] = trees_shadowed[a.tree_size]
+      else:
+        matrix[dx][dy] = trees_opened[a.tree_size]
+
+  print_matrix(matrix)
 
 def clean(arena):
   for c in arena:
@@ -149,15 +175,6 @@ def make_links(indexed_cells):
         cell.neigh_dir.append(i)
 
   return indexed_cells
-
-def print_arena(indexed_cells):
-  arena = indexed_cells[0]
-  line = ["." for i in range(13)]
-  matrix = [line[:] for i in range(7)]
-  visited = [False for i in range(37)]
-  startindex = [3,6]
-  matrix,visited = hex_to_matrix(arena,matrix,visited,startindex)
-  print_matrix(matrix)
 
 def read_input_turn(arena: List[Cell], game_state: GameState) -> Tuple[List[Cell],GameState]:
   game_state.day = int(input())  # the game lasts 24 days: 0-23
@@ -234,12 +251,48 @@ def get_all_actions(arena:List[Cell],game_state:GameState) -> List[str]:
   actions.append(["WAIT", 0])
   return actions
 
+def calculate_shadowed_trees(arena:List[Cell],day:int) -> List[Cell]:
+  direction_reversal = {0:3, 1:4, 2:5, 3:0, 4:1, 5:2}
+
+  shadow_to = day % 6
+  shadow_from = direction_reversal[shadow_to]
+  
+  def cell_has_no_neighbour_at_direction(c: Cell, d:int) -> bool:
+    return (c.neigh_index[d] == -1)
+
+  shadow_casters: List[Cell] = []
+  for a in arena:
+    if cell_has_no_neighbour_at_direction(a,shadow_from):
+      shadow_casters.append(a)
+  
+  while len(shadow_casters) > 0:
+    sc = shadow_casters.pop(0)
+    if sc.is_tree:
+      neigh_last = sc
+      for i in range(sc.tree_size):
+        neigh_index = neigh_last.neigh_index[shadow_to]
+        if neigh_index == -1:
+          break
+        else:
+          neigh = arena[neigh_index]
+          if neigh.is_tree and (neigh.tree_size <= sc.tree_size):
+            neigh.is_shadowed = True
+          neigh_last = neigh
+
+    neigh_index = sc.neigh_index[shadow_to]
+    if neigh_index != -1:
+      neigh = arena[neigh_index]
+      shadow_casters.append(neigh)
+
+  return arena
 # def apply_step():
 # day change when both players stop taking actions
 # best outcome => max my suns and points => min same for enemy
 def get_best_step(arena:List[Cell],game_state:GameState,depth:int) -> Tuple[int,str]:
   if depth > 5:
     return -1, {}
+
+  calculate_shadowed_trees(arena,game_state.day)
 
   actions = get_all_actions(arena,game_state)
   dp(actions)
@@ -266,11 +319,13 @@ def main():
   random.seed(18081991)
 
   arena = read_input_setup()
-  arena = make_links(arena)
-  print_arena(arena)
+
+  make_links(arena)
+  enumerate_hex_to_matrix(arena)
   game_state = GameState()
   # game loop
   while True:
+    print_arena(arena)
     clean(arena)
     arena,game_state = read_input_turn(arena,game_state)
     action = get_next_step(arena,game_state)
