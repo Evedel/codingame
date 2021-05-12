@@ -1,6 +1,7 @@
 import sys
 import math
 import random
+from typing import List, Set, Tuple, Dict
 
 debug = True
 def dp(s):
@@ -94,6 +95,24 @@ class Cell:
       return abs(self.index_x - cell.index_x)
     return (abs(self.index_x - cell.index_x) + abs(self.index_y - cell.index_y))/2
 
+class GameState:
+  # self.is_mine == True  => me is self.xxx[1]
+  # self.is_mine == False => op is self.xxx[0]
+  def __init__(self):
+    self.sun = [-1, -1]
+    self.score = [-1, -1]
+    self.is_waiting = [False, False]
+    self.nutrients = -1
+    self.day = -1
+  def clone(self):
+    gs = GameState()
+    gs.sun = self.sun[:]
+    gs.score = self.score[:]
+    gs.is_waiting = self.is_waiting[:]
+    gs.nutrients = self.nutrients
+    gs.day = self.day
+    return gs
+
 def clean(arena):
   for c in arena:
     c.clean()
@@ -140,16 +159,14 @@ def print_arena(indexed_cells):
   matrix,visited = hex_to_matrix(arena,matrix,visited,startindex)
   print_matrix(matrix)
 
-def read_input_turn(indexed_cells):
-  day = int(input())  # the game lasts 24 days: 0-23
-  nutrients = int(input())  # the base score you gain from the next COMPLETE action
-  # sun: your sun points
-  # score: your current score
-  sun, score = [int(i) for i in input().split()]
+def read_input_turn(arena: List[Cell], game_state: GameState) -> Tuple[List[Cell],GameState]:
+  game_state.day = int(input())  # the game lasts 24 days: 0-23
+  game_state.nutrients = int(input())  # the base score you gain from the next COMPLETE action
+  game_state.sun[1], game_state.score[1] = [int(i) for i in input().split()] # sun: your sun points # score: your current score
   inputs = input().split()
-  opp_sun = int(inputs[0])  # opponent's sun points
-  opp_score = int(inputs[1])  # opponent's score
-  opp_is_waiting = inputs[2] != "0"  # whether your opponent is asleep until the next day
+  game_state.sun[0] = int(inputs[0])  # opponent's sun points
+  game_state.score[0] = int(inputs[1])  # opponent's score
+  game_state.is_waiting[0] = inputs[2] != "0"  # whether your opponent is asleep until the next day
   number_of_trees = int(input())  # the current amount of trees
   for i in range(number_of_trees):
     inputs = input().split()
@@ -157,7 +174,7 @@ def read_input_turn(indexed_cells):
     size = int(inputs[1])  # size of this tree: 0-3
     is_mine = inputs[2] != "0"  # 1 if this is your tree
     is_dormant = inputs[3] != "0"  # 1 if this tree is dormant
-    c = indexed_cells[cell_index]
+    c = arena[cell_index]
     c.is_tree = True
     c.tree_size = size
     c.is_mine = is_mine
@@ -165,9 +182,9 @@ def read_input_turn(indexed_cells):
   number_of_possible_actions = int(input())  # all legal actions
   for i in range(number_of_possible_actions):
     possible_action = input()  # try printing something from here to start with
-  return sun,day,indexed_cells
+  return arena,game_state
 
-def get_all_seed_steps(arena,cell):
+def get_all_seed_actions(arena,day_miltiplier,cell):
   res = []
   c1 = cell
   for c2 in arena:
@@ -178,11 +195,10 @@ def get_all_seed_steps(arena,cell):
           dist = c2.dist(c3)
           if dist < min_dist:
             min_dist = dist
-      res.append(["SEED "+str(c1.index)+" "+str(c2.index), min_dist*c2.richness])
-
+      res.append(["SEED "+str(c1.index)+" "+str(c2.index), min_dist*c2.richness*(1-day_miltiplier)])
   return res
 
-def get_all_steps(arena,sun,day):
+def get_all_actions(arena:List[Cell],game_state:GameState) -> List[str]:
   size_0_trees = 0
   size_1_trees = 0
   size_2_trees = 0
@@ -199,67 +215,66 @@ def get_all_steps(arena,sun,day):
       if c.tree_size == 3:
         size_3_trees += 1
 
-  day_miltiplier = 0.05 if day < 18 else 1
+  day_miltiplier = 0.05 if game_state.day < 20 else 1
 
-  steps = []
+  actions = []
   for c in arena:
     if c.is_tree and c.is_mine:
-      if (size_0_trees <= sun) and (not c.is_dormant) and (c.tree_size != 0):
-        steps += get_all_seed_steps(arena,c)
-      dp("here "+str(c.tree_size)+" "+str(1 + size_1_trees)+" "+str(sun))
-      if (c.tree_size == 0) and (sun >= 1 + size_1_trees):
-        steps.append(["GROW "+str(c.index), 3*c.richness])
-      elif (c.tree_size == 1) and (sun >= 3 + size_2_trees):
-        steps.append(["GROW "+str(c.index), 6*c.richness])
-      elif (c.tree_size == 2) and (sun >= 7 + size_3_trees):
-        steps.append(["GROW "+str(c.index), 10*c.richness])
-      elif (c.tree_size == 3) and (sun >= 4):
-        steps.append(["COMPLETE "+str(c.index), 20*c.richness*day_miltiplier])
+      if (size_0_trees <= game_state.sun[1]) and (not c.is_dormant) and (c.tree_size != 0):
+        actions += get_all_seed_actions(arena,day_miltiplier,c)
+      if (c.tree_size == 0) and (game_state.sun[1] >= 1 + size_1_trees):
+        actions.append(["GROW "+str(c.index), 3*c.richness])
+      elif (c.tree_size == 1) and (game_state.sun[1] >= 3 + size_2_trees):
+        actions.append(["GROW "+str(c.index), 6*c.richness])
+      elif (c.tree_size == 2) and (game_state.sun[1] >= 7 + size_3_trees):
+        actions.append(["GROW "+str(c.index), 10*c.richness])
+      elif (c.tree_size == 3) and (game_state.sun[1] >= 4):
+        actions.append(["COMPLETE "+str(c.index), 20*c.richness*day_miltiplier])
 
-  steps.append(["WAIT", 0])
-  return steps
+  actions.append(["WAIT", 0])
+  return actions
 
 # def apply_step():
-
-def get_best_step(arena,sun,day,depth):
+# day change when both players stop taking actions
+# best outcome => max my suns and points => min same for enemy
+def get_best_step(arena:List[Cell],game_state:GameState,depth:int) -> Tuple[int,str]:
   if depth > 5:
     return -1, {}
 
-  steps = get_all_steps(arena,sun,day)
-  dp(steps)
+  actions = get_all_actions(arena,game_state)
+  dp(actions)
 
   best_points = -1
-  best_step = []
-  for s in steps:
-    if s[1] > best_points:
-      best_step = s[0]
-      best_points = s[1]
-  # for s in steps:
-  #   new_arena = apply_step(arena,s)
+  best_action = []
+  for a in actions:
+    if a[1] > best_points:
+      best_action = a[0]
+      best_points = a[1]
+  # for a in actions:
+  #   new_arena = apply_step(arena,a)
   #   local_best_points,tmp = get_best_step(new_arena,sun,depth+1)
   #   if local_best_points > best_points:
   #     best_points = local_best_points
-  #     best_step = s[:]
-  return best_points,best_step
+  #     best_step = a[:]
+  return best_points,best_action
 
-def get_next_step(indexed_cells,sun,day):
-  points,step = get_best_step(indexed_cells,sun,day,0)
-
-  return step
+def get_next_step(arena:List[Cell], game_state:GameState) -> str:
+  points,action = get_best_step(arena,game_state,0)
+  return action
 
 def main():
   random.seed(18081991)
 
-  indexed_cells = read_input_setup()
-  indexed_cells = make_links(indexed_cells)
-  print_arena(indexed_cells)
-
+  arena = read_input_setup()
+  arena = make_links(arena)
+  print_arena(arena)
+  game_state = GameState()
   # game loop
   while True:
-    clean(indexed_cells)
-    sun,day,indexed_cells = read_input_turn(indexed_cells)
-    res = get_next_step(indexed_cells,sun,day)
-    print(res)
+    clean(arena)
+    arena,game_state = read_input_turn(arena,game_state)
+    action = get_next_step(arena,game_state)
+    print(action)
 
 if __name__ == "__main__":
   main()
