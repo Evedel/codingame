@@ -28,6 +28,8 @@ class Cell:
     cell.neigh_index = self.neigh_index[:]
     cell.neigh_dir = self.neigh_dir[:]
     cell.index = self.index
+    cell.index_x = self.index_x
+    cell.index_y = self.index_y
     cell.richness = self.richness
     cell.is_tree = self.is_tree
     cell.tree_size = self.tree_size
@@ -375,32 +377,41 @@ def apply_step(snapshot:Snapshot,action:str) -> Snapshot:
   new_snapshot.state.day -= 1
   return new_snapshot
 
+def choose_best_actions(states_now:List[Snapshot],states_next:List[Snapshot],number:int) -> Tuple[List[Snapshot],List[Snapshot]]:
+  states_next.sort(key=lambda x: x.price, reverse=True)
+  states_now = states_next[:number]
+  states_next = []
+  return states_now,states_next
+
 def get_best_step(states_now:List[Snapshot],states_next:List[Snapshot],depth:int) -> Tuple[int,str]:
-  if depth > 5:
-    return -1, ''
+  if depth > 1:
+    best_action = ''
+    best_price = -1
+    for s in states_now:
+      if s.price > best_price:
+        best_price = s.price
+        best_action = s.path[0]
+    return best_price,best_action
+
+  while len(states_now) != 0:
+    snapshot = states_now.pop(0)
+    # dp(str(depth)+" : "+str(snapshot.price) + " : "+str(snapshot.path))
+
+    actions = get_all_actions(snapshot.arena,snapshot.state)
+
+    for a in actions:
+      new_snapshot = apply_step(snapshot,a)
+      states_next.append(new_snapshot)
+      # if new_snapshot.price > best_price:
+      #   best_price = new_snapshot.price
+      #   best_action = new_snapshot.path[0]
+      # dp(str(new_snapshot.price) + " : "+str(new_snapshot.path))
+      # print_arena(new_snapshot.arena)
+      # states_next.append(new_snapshot)  
+      # local_best_points,tmp = get_best_step(new_arena,sun,depth+1)
   
-  if len(states_now) == 0:
-    if len(states_next) == 0:
-      return -1, ''
-    # else:
-    #   choose_best_actions(states_now,states_next,10)
-
-  snapshot = states_now.pop(0)
-  dp(str(depth)+" : "+str(snapshot.price) + " : "+str(snapshot.path))
-
-  actions = get_all_actions(snapshot.arena,snapshot.state)
-  dp(actions)
-
-  best_price = -1
-  best_action = ''
-  for a in actions:
-    new_snapshot = apply_step(snapshot,a)
-    if new_snapshot.price > best_price:
-      best_price = new_snapshot.price
-      best_action = new_snapshot.path[0]
-    # states_next.append(new_snapshot)  
-    # local_best_points,tmp = get_best_step(new_arena,sun,depth+1)
-  return best_price,best_action
+  states_now,states_next = choose_best_actions(states_now,states_next,10)
+  return get_best_step(states_now,states_next,depth+1)
 
 def calculate_price(arena:List[Cell],state:GameState) -> float:
   whoami = True
@@ -411,10 +422,12 @@ def calculate_price(arena:List[Cell],state:GameState) -> float:
   new_suns = 0
   for a in arena:
     if a.is_tree and (a.is_mine == whoami) and (not a.is_shadowed):
-      new_suns += a.tree_size
+      # new_suns += a.tree_size
+      price += a.richness*a.tree_size*day_muliplier
 
-  price += (state.sun[myid] + new_suns)*day_muliplier
-  price += state.score[myid]*(1 - day_muliplier)
+  # price += (state.sun[myid] + new_suns)*day_muliplier
+  price += new_suns*day_muliplier
+  price += state.score[myid]*(1 - day_muliplier)*0.125
   return price
 
 def get_next_step(arena:List[Cell], state:GameState) -> str:
