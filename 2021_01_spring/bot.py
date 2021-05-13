@@ -22,9 +22,9 @@ class Cell:
     self.is_dormant = False
     self.is_shadowed = False
   
-  def copy(self):
+  def clone(self):
     cell = Cell()
-    self.neigh_cells = []
+    self.neigh_cells = None
     cell.neigh_index = self.neigh_index[:]
     cell.neigh_dir = self.neigh_dir[:]
     cell.index = self.index
@@ -52,11 +52,12 @@ class GameState:
   # self.is_mine == True  => me is self.xxx[1]
   # self.is_mine == False => op is self.xxx[0]
   def __init__(self):
-    self.sun = [-1, -1]
-    self.score = [-1, -1]
-    self.is_waiting = [False, False]
-    self.nutrients = -1
-    self.day = -1
+    self.sun        : List[int]  = [-1, -1]
+    self.score      : List[int]  = [-1, -1]
+    self.is_waiting : List[bool] = [False, False]
+    self.nutrients  : int = -1
+    self.day        : int = -1
+
   def clone(self):
     gs = GameState()
     gs.sun = self.sun[:]
@@ -66,6 +67,20 @@ class GameState:
     gs.day = self.day
     return gs
 
+class Snapshot:
+  def __init__(self):
+    self.price : float      = None
+    self.path  : List[str]  = None
+    self.arena : List[Cell] = None
+    self.state : GameState  = None
+  
+  def clone(self):
+    new_snapshot = Snapshot()
+    new_snapshot.price = self.price
+    new_snapshot.path = self.path[:]
+    new_snapshot.arena = clone_arena(self.arena)
+    new_snapshot.state = self.state.clone()
+    return new_snapshot
 # will convert the hex tree into gorgeous matrux that can be printed into console
 # depth first recursive search
 # output example
@@ -143,12 +158,11 @@ def clean(arena):
   for c in arena:
     c.clean()
 
-def copy_arena(indexed_cells):
-  indexed_cells_copy = []
-  for c in indexed_cells:
-    indexed_cells_copy.append(c.copy())
-  indexed_cells_copy = make_links(indexed_cells_copy)
-  return indexed_cells_copy
+def clone_arena(arena:List[Cell]) -> List[Cell]:
+  arena_copy = []
+  for a in arena:
+    arena_copy.append(a.clone())
+  return arena_copy
 
 def read_input_setup():
   indexed_cells = []
@@ -201,7 +215,7 @@ def read_input_turn(arena: List[Cell], game_state: GameState) -> Tuple[List[Cell
     possible_action = input()  # try printing something from here to start with
   return arena,game_state
 
-def get_all_seed_actions(arena,day_miltiplier,cell):
+def get_all_seed_actions(arena,cell):
   res = []
   c1 = cell
   for c2 in arena:
@@ -212,10 +226,10 @@ def get_all_seed_actions(arena,day_miltiplier,cell):
           dist = c2.dist(c3)
           if dist < min_dist:
             min_dist = dist
-      res.append(["SEED "+str(c1.index)+" "+str(c2.index), min_dist*c2.richness*(1-day_miltiplier)])
+      res.append("SEED "+str(c1.index)+" "+str(c2.index))
   return res
 
-def get_all_actions(arena:List[Cell],game_state:GameState) -> List[str]:
+def get_trees_numbers(arena:List[Cell]) -> Tuple[int,int,int,int]:
   size_0_trees = 0
   size_1_trees = 0
   size_2_trees = 0
@@ -232,23 +246,26 @@ def get_all_actions(arena:List[Cell],game_state:GameState) -> List[str]:
       if c.tree_size == 3:
         size_3_trees += 1
 
-  day_miltiplier = 0.05 if game_state.day < 20 else 1
+  return size_0_trees,size_1_trees,size_2_trees,size_3_trees
+
+def get_all_actions(arena:List[Cell],game_state:GameState) -> List[str]:
+  size_0_trees,size_1_trees,size_2_trees,size_3_trees = get_trees_numbers(arena)
 
   actions = []
   for c in arena:
-    if c.is_tree and c.is_mine:
-      if (size_0_trees <= game_state.sun[1]) and (not c.is_dormant) and (c.tree_size != 0):
-        actions += get_all_seed_actions(arena,day_miltiplier,c)
+    if c.is_tree and c.is_mine and (not c.is_dormant):
+      if (c.tree_size != 0) and (size_0_trees <= game_state.sun[1]):
+        actions += get_all_seed_actions(arena,c)
       if (c.tree_size == 0) and (game_state.sun[1] >= 1 + size_1_trees):
-        actions.append(["GROW "+str(c.index), 3*c.richness])
+        actions.append("GROW "+str(c.index))
       elif (c.tree_size == 1) and (game_state.sun[1] >= 3 + size_2_trees):
-        actions.append(["GROW "+str(c.index), 6*c.richness])
+        actions.append("GROW "+str(c.index))
       elif (c.tree_size == 2) and (game_state.sun[1] >= 7 + size_3_trees):
-        actions.append(["GROW "+str(c.index), 10*c.richness])
+        actions.append("GROW "+str(c.index))
       elif (c.tree_size == 3) and (game_state.sun[1] >= 4):
-        actions.append(["COMPLETE "+str(c.index), 20*c.richness*day_miltiplier])
+        actions.append("COMPLETE "+str(c.index))
 
-  actions.append(["WAIT", 0])
+  actions.append("WAIT")
   return actions
 
 def calculate_shadowed_trees(arena:List[Cell],day:int) -> List[Cell]:
@@ -285,34 +302,139 @@ def calculate_shadowed_trees(arena:List[Cell],day:int) -> List[Cell]:
       shadow_casters.append(neigh)
 
   return arena
-# def apply_step():
-# day change when both players stop taking actions
-# best outcome => max my suns and points => min same for enemy
-def get_best_step(arena:List[Cell],game_state:GameState,depth:int) -> Tuple[int,str]:
+
+def clean_shadows(arena:List[Cell]):
+  for a in arena:
+    a.is_shadowed = False
+
+def apply_wait(snapshot:Snapshot):
+  whoami = True
+  myid = int(whoami)
+  snapshot.state.day += 1
+  for a in snapshot.arena:
+    if a.is_tree:
+      a.is_dormant = False
+      a.is_shadowed = False
+  calculate_shadowed_trees(snapshot.arena,snapshot.state.day)
+  for a in snapshot.arena:
+    if a.is_tree and (whoami == a.is_mine) and (not a.is_shadowed):
+      snapshot.state.sun[myid] += a.tree_size
+
+def apply_grow(snapshot:Snapshot,index:int):
+  whoami = True
+  myid = int(whoami)
+  trees_cost = [0,1,3,7]
+  trees_numbers = get_trees_numbers(snapshot.arena)
+  snapshot.arena[index].is_dormant = True
+  snapshot.arena[index].tree_size += 1
+  new_size = snapshot.arena[index].tree_size
+  snapshot.state.sun[myid] -= trees_cost[new_size] + trees_numbers[new_size]
+
+def apply_complete(snapshot:Snapshot,index:int):
+  whoami = True
+  myid = int(whoami)
+  richness_bonus = [0,0,2,4]
+  richness = snapshot.arena[index].richness
+  snapshot.state.score[myid] += snapshot.state.nutrients + richness_bonus[richness]
+  snapshot.state.nutrients -= 1
+  snapshot.arena[index].is_tree     = False
+  snapshot.arena[index].is_dormant  = False
+  snapshot.arena[index].is_mine     = False
+  snapshot.arena[index].is_shadowed = False
+  snapshot.arena[index].tree_size   = -1
+
+def apply_seed(snapshot:Snapshot,index_parent:int,index_kid:int):
+  whoami = True
+  myid = int(whoami)
+  trees_numbers = get_trees_numbers(snapshot.arena)
+  snapshot.arena[index_parent].is_dormant = True
+  snapshot.arena[index_kid].is_dormant = True
+  snapshot.arena[index_kid].is_tree = True
+  snapshot.arena[index_kid].is_mine = whoami
+  snapshot.arena[index_kid].tree_size = 0
+  snapshot.state.sun[myid] -= trees_numbers[0]
+
+def apply_step(snapshot:Snapshot,action:str) -> Snapshot:
+  new_snapshot : Snapshot = snapshot.clone()
+  
+  new_snapshot.path.append(action)
+  action_parts = action.split()
+  if action_parts[0] == "WAIT":
+    apply_wait(new_snapshot)
+  if action_parts[0] == "GROW":
+    apply_grow(new_snapshot,int(action_parts[1]))
+  if action_parts[0] == "COMPLETE":
+    apply_complete(new_snapshot,int(action_parts[1]))
+  if action_parts[0] == "SEED":
+    apply_seed(new_snapshot,int(action_parts[1]),int(action_parts[2]))
+  
+  clean_shadows(new_snapshot.arena)
+  new_snapshot.state.day += 1
+  calculate_shadowed_trees(new_snapshot.arena,new_snapshot.state.day)
+  new_snapshot.price = calculate_price(new_snapshot.arena,new_snapshot.state)
+  new_snapshot.state.day -= 1
+  return new_snapshot
+
+def get_best_step(states_now:List[Snapshot],states_next:List[Snapshot],depth:int) -> Tuple[int,str]:
   if depth > 5:
-    return -1, {}
+    return -1, ''
+  
+  if len(states_now) == 0:
+    if len(states_next) == 0:
+      return -1, ''
+    # else:
+    #   choose_best_actions(states_now,states_next,10)
 
-  calculate_shadowed_trees(arena,game_state.day)
+  snapshot = states_now.pop(0)
+  dp(str(depth)+" : "+str(snapshot.price) + " : "+str(snapshot.path))
 
-  actions = get_all_actions(arena,game_state)
+  actions = get_all_actions(snapshot.arena,snapshot.state)
   dp(actions)
 
-  best_points = -1
-  best_action = []
+  best_price = -1
+  best_action = ''
   for a in actions:
-    if a[1] > best_points:
-      best_action = a[0]
-      best_points = a[1]
-  # for a in actions:
-  #   new_arena = apply_step(arena,a)
-  #   local_best_points,tmp = get_best_step(new_arena,sun,depth+1)
-  #   if local_best_points > best_points:
-  #     best_points = local_best_points
-  #     best_step = a[:]
-  return best_points,best_action
+    new_snapshot = apply_step(snapshot,a)
+    if new_snapshot.price > best_price:
+      best_price = new_snapshot.price
+      best_action = new_snapshot.path[0]
+    # states_next.append(new_snapshot)  
+    # local_best_points,tmp = get_best_step(new_arena,sun,depth+1)
+  return best_price,best_action
 
-def get_next_step(arena:List[Cell], game_state:GameState) -> str:
-  points,action = get_best_step(arena,game_state,0)
+def calculate_price(arena:List[Cell],state:GameState) -> float:
+  whoami = True
+  myid = int(whoami)
+  price = 0
+  max_days = 24
+  day_muliplier = (max_days - state.day)/max_days
+  new_suns = 0
+  for a in arena:
+    if a.is_tree and (a.is_mine == whoami) and (not a.is_shadowed):
+      new_suns += a.tree_size
+
+  price += (state.sun[myid] + new_suns)*day_muliplier
+  price += state.score[myid]*(1 - day_muliplier)
+  return price
+
+def get_next_step(arena:List[Cell], state:GameState) -> str:
+  states_now  : List[Snapshot] = []
+  states_next : List[Snapshot] = []
+
+  next_day_state = state.clone()
+  next_day_state.day += 1
+  next_day_arena = clone_arena(arena)
+  calculate_shadowed_trees(next_day_arena,next_day_state.day)
+
+  origin = Snapshot()
+  origin.arena = clone_arena(arena)
+  origin.path  = []
+  origin.price = calculate_price(next_day_arena,next_day_state)
+  origin.state = state.clone()
+
+  states_now = [origin]
+  points,action = get_best_step(states_now,states_next,0)
+  dp("best price:" + str(points))
   return action
 
 def main():
@@ -325,7 +447,7 @@ def main():
   game_state = GameState()
   # game loop
   while True:
-    print_arena(arena)
+    # print_arena(arena)
     clean(arena)
     arena,game_state = read_input_turn(arena,game_state)
     action = get_next_step(arena,game_state)
