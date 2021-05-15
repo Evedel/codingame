@@ -40,6 +40,7 @@ struct Snapshot {
   price : i32,
   path : Vec<String>,
   arena : Arena,
+  map : Map,
   state : State,
 }
 
@@ -207,40 +208,56 @@ fn dist(h1 : &Hex, h2 : &Hex) -> i32 {
   return (dx.abs() + dy.abs())/2
 }
 
-// def calculate_shadowed_trees(arena:List[Cell],day:int) -> List[Cell]:
-//   direction_reversal = {0:3, 1:4, 2:5, 3:0, 4:1, 5:2}
+fn cell_has_no_neighbour_at_direction(h1 : &Hex, dir : &i32) -> bool {
+  return h1.neighbors_ids[*dir as usize] == -1
+}
 
-//   shadow_to = day % 6
-//   shadow_from = direction_reversal[shadow_to]
-  
-//   def cell_has_no_neighbour_at_direction(c: Cell, d:int) -> bool:
-//     return (c.neigh_index[d] == -1)
+fn calculate_shadowed_trees(arena : &Arena, map : &mut Map, day : &i32) {
+  let direction_reversal = vec![3, 4, 5, 0, 1, 2];
+  let shadow_to = (day % 6) as usize;
+  let shadow_from = direction_reversal[shadow_to];
+  let mut shadow_casters = vec![];
 
-//   shadow_casters: List[Cell] = []
-//   for a in arena:
-//     if cell_has_no_neighbour_at_direction(a,shadow_from):
-//       shadow_casters.append(a)
-  
-//   while len(shadow_casters) > 0:
-//     sc = shadow_casters.pop(0)
-//     if sc.is_tree:
-//       neigh_last = sc
-//       for i in range(sc.tree_size):
-//         neigh_index = neigh_last.neigh_index[shadow_to]
-//         if neigh_index == -1:
-//           break
-//         else:
-//           neigh = arena[neigh_index]
-//           if neigh.is_tree and (neigh.tree_size <= sc.tree_size):
-//             neigh.is_shadowed = True
-//           neigh_last = neigh
+  for i in 0..arena.len() {
+    if cell_has_no_neighbour_at_direction(&arena[i], &shadow_from) {
+      shadow_casters.push(i);
+    }
+  }
+  loop {
+    let sc = shadow_casters.pop();
+    match sc {
+      None => break,
+      Some(initial_hex_id) => {
+        if map[initial_hex_id].is_tree {
+          let mut next_hex_id = &arena[initial_hex_id].neighbors_ids[shadow_to];
+          for _i2 in 0..map[initial_hex_id].tree_size {
+            if *next_hex_id == -1 {
+              break;
+            }
+            let next_hex_id_usize = *next_hex_id as usize;
+            if map[next_hex_id_usize].is_tree &&
+              (map[next_hex_id_usize].tree_size <= map[initial_hex_id].tree_size)
+            {
+              map[next_hex_id_usize].is_shadowed = true;
+            }
+            next_hex_id = &arena[next_hex_id_usize].neighbors_ids[shadow_to];
+          }
+        }
+        
+        let next_hex_id = &arena[initial_hex_id].neighbors_ids[shadow_to];
+        if *next_hex_id != -1 {
+          shadow_casters.push(*next_hex_id as usize);
+        }
+      }
+    }
+  }
+}
 
-//     neigh_index = sc.neigh_index[shadow_to]
-//     if neigh_index != -1:
-//       neigh = arena[neigh_index]
-//       shadow_casters.append(neigh)
-
-//   return arena
+fn clean_shadows(snap : &mut Snapshot) {
+  for i in 0..snap.map.len() {
+    snap.map[i].is_shadowed = false;
+  }
+}
 
 fn main() {
   let mut arena = read_arena();
@@ -337,6 +354,17 @@ mod tests {
     }
     enumerate_hex_to_matrix(&mut arena, &mut visited, 0, 3, 6);
 
+    let mut map = vec![];
+    for _i in 0..arena.len() {
+      map.push(Cell{
+        is_tree: false,
+        is_dormant: false,
+        is_mine: false,
+        is_shadowed: false,
+        tree_size: -1,
+      })
+    }
+
     let state = State{
       day:0,
       nutrients:20,
@@ -349,6 +377,7 @@ mod tests {
       price:0,
       path:vec![],
       state:state,
+      map: map,
     };
     
 
@@ -396,5 +425,50 @@ mod tests {
         }
       }
     }
+  }
+
+  #[test]
+  fn test_shadow_calc() {
+    let mut snap = get_starting_snapshot();
+    let mut day = 0;
+    snap.map[0].is_tree = true;
+    snap.map[0].tree_size = 0;
+    snap.map[1].is_tree = true;
+    snap.map[1].tree_size = 0;
+    calculate_shadowed_trees(&snap.arena, &mut snap.map, &day);
+    assert_eq!(snap.map[1].is_shadowed, false);
+
+    clean_shadows(&mut snap);
+    snap.map[1].tree_size = 1;
+    calculate_shadowed_trees(&snap.arena, &mut snap.map, &day);
+    assert_eq!(snap.map[1].is_shadowed, false);
+
+    clean_shadows(&mut snap);
+    snap.map[0].tree_size = 1;
+    calculate_shadowed_trees(&snap.arena, &mut snap.map, &day);
+    assert_eq!(snap.map[1].is_shadowed, true);
+
+    clean_shadows(&mut snap);
+    snap.map[1].is_tree = false;
+    snap.map[7].is_tree = true;
+    snap.map[7].tree_size = 1;
+    calculate_shadowed_trees(&snap.arena, &mut snap.map, &day);
+    assert_eq!(snap.map[7].is_shadowed, false);
+
+    clean_shadows(&mut snap);
+    snap.map[0].tree_size = 2;
+    calculate_shadowed_trees(&snap.arena, &mut snap.map, &day);
+    assert_eq!(snap.map[7].is_shadowed, true);
+
+    clean_shadows(&mut snap);
+    day = 1;
+    snap.map[9].is_tree = true;
+    snap.map[9].tree_size = 1;
+    snap.map[2].is_tree = true;
+    snap.map[2].tree_size = 3;
+    calculate_shadowed_trees(&snap.arena, &mut snap.map, &day);
+    assert_eq!(snap.map[7].is_shadowed, false);
+    assert_eq!(snap.map[9].is_shadowed, true);
+    assert_eq!(snap.map[2].is_shadowed, false);
   }
 }
