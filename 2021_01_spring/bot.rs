@@ -39,9 +39,42 @@ type Arena = Vec<Hex>;
 struct Snapshot {
   price : f32,
   path : Vec<String>,
-  arena : Arena,
   map : Map,
   state : State,
+}
+
+fn clone_map(map : &Map) -> Map {
+  let mut map_new = vec![];
+  for m in map {
+    map_new.push(Cell{
+      is_tree : m.is_tree,
+      is_mine : m.is_mine,
+      is_dormant : m.is_dormant,
+      is_shadowed : m.is_shadowed,
+      tree_size : m.tree_size,
+    });
+  }
+
+  map_new
+}
+
+fn clone_state(state : &State) -> State {
+  State{
+    day: state.day,
+    nutrients : state.nutrients,
+    sun : state.sun.clone(),
+    score : state.score.clone(),
+    is_waiting : state.is_waiting.clone(),
+  }
+}
+
+fn clone_snapshot(snap : &Snapshot) -> Snapshot {
+  Snapshot{
+    price : snap.price,
+    path : snap.path.clone(),
+    map : clone_map(&snap.map),
+    state : clone_state(&snap.state),
+  }
 }
 
 fn read_map(map : &mut Map) {
@@ -240,24 +273,24 @@ fn calculate_shadowed_trees(arena : &Arena, map : &mut Map, day : i32) {
   }
 }
 
-fn clean_shadows(snap : &mut Snapshot) {
+fn clear_shadows(snap : &mut Snapshot) {
   for i in 0..snap.map.len() {
     snap.map[i].is_shadowed = false;
   }
 }
 
-fn calculate_price(snap : &mut Snapshot) {
+fn calculate_price(snap : &mut Snapshot, arena : &Arena) {
   let whoami = true;
   let myid = whoami as usize;
   let mut price = 0.0;
   let max_days = 24;
   let day_muliplier = (max_days - snap.state.day) as f32/max_days as f32;
-  for i in 0..snap.arena.len() {
+  for i in 0..arena.len() {
     if snap.map[i].is_tree && 
         snap.map[i].is_mine &&
         !snap.map[i].is_shadowed
     {
-      price += ((snap.map[i].tree_size + 1) * snap.arena[i].richness) as f32 * day_muliplier;
+      price += ((snap.map[i].tree_size + 1) * arena[i].richness) as f32 * day_muliplier;
     }
   }
   price += snap.state.score[myid] as f32 * (1.0 - day_muliplier);
@@ -276,23 +309,23 @@ fn get_trees_numbers(snap : &Snapshot) -> Vec<i32> {
   return tree_nubers;
 }
 
-fn get_all_seed_actions(actions : &mut Vec<String>, snap : &Snapshot, cell_id : usize) {
+fn get_all_seed_actions(actions : &mut Vec<String>, snap : &Snapshot, arena : &Arena, cell_id : usize) {
   for i in 0..snap.map.len() {
     if !snap.map[i].is_tree &&
-      (snap.arena[i].richness > 0) &&
-      (dist(&snap.arena[cell_id],&snap.arena[i]) <= snap.map[cell_id].tree_size)
+      (arena[i].richness > 0) &&
+      (dist(&arena[cell_id],&arena[i]) <= snap.map[cell_id].tree_size)
     {
       actions.push(format!("SEED {} {}",cell_id, i));
     }
   }
 }
 
-fn get_all_actions(snap : &Snapshot) -> Vec<String> {
+fn get_all_actions(snap : &Snapshot, arena: &Arena) -> Vec<String> {
   let tree_fix_cost = vec![0,1,3,7];
   let tree_add_cost = get_trees_numbers(snap);
   let mut actions = vec![];
   actions.push(String::from("WAIT"));
-  for i in 0..snap.arena.len() {
+  for i in 0..arena.len() {
     if snap.map[i].is_tree &&
       snap.map[i].is_mine &&
       !snap.map[i].is_dormant
@@ -300,7 +333,7 @@ fn get_all_actions(snap : &Snapshot) -> Vec<String> {
       if (snap.map[i].tree_size != 0) && 
         (tree_fix_cost[0] + tree_add_cost[0] <= snap.state.sun[1])
       {
-        get_all_seed_actions(&mut actions, snap, i);
+        get_all_seed_actions(&mut actions, snap, arena, i);
       }
       let tree_size = snap.map[i].tree_size as usize;
       if tree_size == 3 {
@@ -324,8 +357,86 @@ fn clear_map(map : &mut Map) {
   }
 }
 
+fn apply_step(snap : &Snapshot, action : String) -> Snapshot {
+  Snapshot{
+    state:State{day:0,nutrients:0,sun:vec![],score:vec![],is_waiting:vec![]},
+    map:vec![],
+    price:0.0,
+    path:vec![],
+  }
+}
+
+fn get_next_snapshots(snapshots_now : &mut Vec<Snapshot>, snapshots_next : &mut Vec<Snapshot>, arena : &Arena) {
+  loop {
+    let snap_option = snapshots_now.pop();
+    match snap_option {
+      None => break,
+      Some(snap) => {
+        let actions = get_all_actions(&snap, arena);
+        for a in actions {
+          let snap_new = apply_step(&snap, a);
+
+          if snapshots_next.len() == 0 {
+            snapshots_next.push(snap_new);
+          } else {
+            let aim_price = snap_new.price;
+            let mut aim_index = 0 as usize;
+            let mut found = false;
+            for i in 0..snapshots_next.len() {
+              if snapshots_next[i].price < aim_price {
+                aim_index = i;
+                found = true;
+                break;
+              }
+            }
+            if found {
+              snapshots_next.insert(aim_index, snap_new);
+            } else {
+              snapshots_next.push(snap_new);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+fn choose_best_snapshots(
+  snapshots_now : &mut Vec<Snapshot>,
+  snapshots_next: &mut Vec<Snapshot>,
+  amount: i32)
+{
+  let mut iter_limit = amount as usize;
+  let next_len = snapshots_next.len();
+  if iter_limit < next_len {
+    iter_limit = next_len;
+  }
+  for i in 0..iter_limit {
+    snapshots_now.push(clone_snapshot(&snapshots_next[i]));
+  }
+  snapshots_next.clear();
+}
+
+fn get_next_step(snap : &mut Snapshot, arena : &Arena) -> String {
+  let mut snapshots_now = vec![];
+  let mut snapshots_next = vec![];
+
+  calculate_shadowed_trees(&arena, &mut snap.map, snap.state.day+1);
+  calculate_price(snap, arena);
+
+  snapshots_now.push(clone_snapshot(snap));
+  for _i in 0..1 {
+    get_next_snapshots(&mut snapshots_now, &mut snapshots_next, arena);
+    eprintln!("{} {}",&snapshots_now.len(), &snapshots_next.len());
+    choose_best_snapshots(&mut snapshots_now, &mut snapshots_next, 10);
+    eprintln!("{} {}",&snapshots_now.len(), &snapshots_next.len());  
+  }
+  
+  return snapshots_now[0].path[0].to_string()
+}
+
 fn main() {
-  let arena = read_arena();
+  let mut arena = read_arena();
   
   let mut map = vec![];
   let mut visited = vec![];
@@ -341,18 +452,19 @@ fn main() {
   }
   
   let state = State{day:0,nutrients:0,is_waiting:vec![false,false],score:vec![0,0],sun:vec![0,0]};
-  let mut snap = Snapshot{arena:arena, map:map, state:state,price:0.0,path:vec![]};
-  enumerate_hex_to_matrix(&mut snap.arena, &mut visited, 0, 3, 6);
+  let mut snap = Snapshot{map:map, state:state,price:0.0,path:vec![]};
+  enumerate_hex_to_matrix(&mut arena, &mut visited, 0, 3, 6);
   loop {
     clear_map(&mut snap.map);
     read_game_state(&mut snap.state);
     read_map(&mut snap.map);
     let action_list_1 = read_actionlist();
-    let action_list_2 = get_all_actions(&snap);
+    let action_list_2 = get_all_actions(&snap, &arena);
     eprintln!("{:?}", action_list_1);
     eprintln!("{:?}", action_list_2);
-
-    print_map(&snap.arena,&snap.map);
+    let action = get_next_step(&mut snap, &arena);
+    eprintln!("{}", action);
+    print_map(&arena,&snap.map);
 
     match action_list_1.last() {
       None => println!("WAIT"),
@@ -373,7 +485,7 @@ fn main() {
 mod tests {
   use super::*;
 
-  fn get_starting_snapshot() -> Snapshot {
+  fn get_starting_snapshot() -> (Snapshot, Arena) {
     let mut arena = vec![];
     arena.push(Hex{index_x: -1,index_y: -1,richness: 3,
       neighbors_ids: vec![1,2,3,4,5,6],
@@ -458,7 +570,6 @@ mod tests {
       is_waiting:vec![false,false],
     };
     let snapshot = Snapshot{
-      arena:arena,
       price:0.0,
       path:vec![],
       state:state,
@@ -466,37 +577,37 @@ mod tests {
     };
     
 
-    snapshot
+    (snapshot, arena)
   }
   #[test]
   fn test_enumerate_hex_to_matrix() {
-    let snap = get_starting_snapshot();
-    assert_eq!(snap.arena[0].index_x, 3);
-    assert_eq!(snap.arena[0].index_y, 6);
+    let (_snap, arena) = get_starting_snapshot();
+    assert_eq!(arena[0].index_x, 3);
+    assert_eq!(arena[0].index_y, 6);
 
-    assert_eq!(snap.arena[1].index_x, 3);
-    assert_eq!(snap.arena[1].index_y, 8);
+    assert_eq!(arena[1].index_x, 3);
+    assert_eq!(arena[1].index_y, 8);
 
-    assert_eq!(snap.arena[2].index_x, 2);
-    assert_eq!(snap.arena[2].index_y, 7);
+    assert_eq!(arena[2].index_x, 2);
+    assert_eq!(arena[2].index_y, 7);
 
-    assert_eq!(snap.arena[3].index_x, 2);
-    assert_eq!(snap.arena[3].index_y, 5);
+    assert_eq!(arena[3].index_x, 2);
+    assert_eq!(arena[3].index_y, 5);
 
-    assert_eq!(snap.arena[4].index_x, 3);
-    assert_eq!(snap.arena[4].index_y, 4);
+    assert_eq!(arena[4].index_x, 3);
+    assert_eq!(arena[4].index_y, 4);
 
-    assert_eq!(snap.arena[5].index_x, 4);
-    assert_eq!(snap.arena[5].index_y, 5);
+    assert_eq!(arena[5].index_x, 4);
+    assert_eq!(arena[5].index_y, 5);
 
-    assert_eq!(snap.arena[6].index_x, 4);
-    assert_eq!(snap.arena[6].index_y, 7);
+    assert_eq!(arena[6].index_x, 4);
+    assert_eq!(arena[6].index_y, 7);
   }
   #[test]
   fn test_dist() {
-    let snap = get_starting_snapshot();
-    let s0 = &snap.arena[0];
-    for s in &snap.arena {
+    let (_snap, arena) = get_starting_snapshot();
+    let s0 = &arena[0];
+    for s in &arena {
       if (s.index_x == s0.index_x) && (s.index_y == s0.index_y) {
         assert_eq!(dist(s, s0), 0);
       } else {
@@ -511,59 +622,59 @@ mod tests {
   }
   #[test]
   fn test_shadow_calc() {
-    let mut snap = get_starting_snapshot();
+    let (mut snap, arena) = get_starting_snapshot();
     let mut day = 0;
     snap.map[0].is_tree = true;
     snap.map[0].tree_size = 0;
     snap.map[1].is_tree = true;
     snap.map[1].tree_size = 0;
-    calculate_shadowed_trees(&snap.arena, &mut snap.map, day);
+    calculate_shadowed_trees(&arena, &mut snap.map, day);
     assert_eq!(snap.map[1].is_shadowed, false);
 
-    clean_shadows(&mut snap);
+    clear_shadows(&mut snap);
     snap.map[1].tree_size = 1;
-    calculate_shadowed_trees(&snap.arena, &mut snap.map, day);
+    calculate_shadowed_trees(&arena, &mut snap.map, day);
     assert_eq!(snap.map[1].is_shadowed, false);
 
-    clean_shadows(&mut snap);
+    clear_shadows(&mut snap);
     snap.map[0].tree_size = 1;
-    calculate_shadowed_trees(&snap.arena, &mut snap.map, day);
+    calculate_shadowed_trees(&arena, &mut snap.map, day);
     assert_eq!(snap.map[1].is_shadowed, true);
 
-    clean_shadows(&mut snap);
+    clear_shadows(&mut snap);
     snap.map[1].is_tree = false;
     snap.map[7].is_tree = true;
     snap.map[7].tree_size = 1;
-    calculate_shadowed_trees(&snap.arena, &mut snap.map, day);
+    calculate_shadowed_trees(&arena, &mut snap.map, day);
     assert_eq!(snap.map[7].is_shadowed, false);
 
-    clean_shadows(&mut snap);
+    clear_shadows(&mut snap);
     snap.map[0].tree_size = 2;
-    calculate_shadowed_trees(&snap.arena, &mut snap.map, day);
+    calculate_shadowed_trees(&arena, &mut snap.map, day);
     assert_eq!(snap.map[7].is_shadowed, true);
 
-    clean_shadows(&mut snap);
+    clear_shadows(&mut snap);
     day = 1;
     snap.map[9].is_tree = true;
     snap.map[9].tree_size = 1;
     snap.map[2].is_tree = true;
     snap.map[2].tree_size = 3;
-    calculate_shadowed_trees(&snap.arena, &mut snap.map, day);
+    calculate_shadowed_trees(&arena, &mut snap.map, day);
     assert_eq!(snap.map[7].is_shadowed, false);
     assert_eq!(snap.map[9].is_shadowed, true);
     assert_eq!(snap.map[2].is_shadowed, false);
   }
   #[test]
   fn test_get_all_actions() {
-    let mut snap = get_starting_snapshot();
-    let actions = get_all_actions(&snap);
+    let (mut snap, arena) = get_starting_snapshot();
+    let actions = get_all_actions(&snap, &arena);
     assert_eq!(actions.len(), 1);
     assert_eq!(actions[0], String::from("WAIT"));
 
     snap.map[0].is_tree = true;
     snap.map[0].is_mine = true;
     snap.map[0].tree_size = 0;
-    let actions = get_all_actions(&snap);
+    let actions = get_all_actions(&snap, &arena);
     assert_eq!(actions.len(), 2);
     assert_eq!(actions[0], String::from("WAIT"));
     assert_eq!(actions[1], String::from("GROW 0"));
@@ -571,7 +682,7 @@ mod tests {
     snap.map[0].is_tree = true;
     snap.map[0].is_mine = true;
     snap.map[0].tree_size = 1;
-    let actions = get_all_actions(&snap);
+    let actions = get_all_actions(&snap, &arena);
     assert_eq!(actions.len(), 7);
     assert_eq!(actions[0], String::from("WAIT"));
     for i in 1..7 {
@@ -579,7 +690,7 @@ mod tests {
     }
 
     snap.state.sun[1] = 3;
-    let actions = get_all_actions(&snap);
+    let actions = get_all_actions(&snap, &arena);
     assert_eq!(actions.len(), 8);
     assert_eq!(actions[0], String::from("WAIT"));
     for i in 1..7 {
@@ -589,7 +700,7 @@ mod tests {
 
     snap.state.sun[1] = 7;
     snap.map[0].tree_size = 2;
-    let actions = get_all_actions(&snap);
+    let actions = get_all_actions(&snap, &arena);
     assert_eq!(actions.len(), 20);
     assert_eq!(actions[0], String::from("WAIT"));
     for i in 1..19 {
@@ -599,7 +710,7 @@ mod tests {
 
     snap.state.sun[1] = 4;
     snap.map[0].tree_size = 3;
-    let actions = get_all_actions(&snap);
+    let actions = get_all_actions(&snap, &arena);
     assert_eq!(actions.len(), 20);
     assert_eq!(actions[0], String::from("WAIT"));
     for i in 1..19 {
