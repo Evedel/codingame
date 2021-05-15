@@ -183,7 +183,7 @@ fn enumerate_hex_to_matrix(
       3 => { next_index_y -= 2; }
       4 => { next_index_x += 1; next_index_y -= 1; }
       5 => { next_index_x += 1; next_index_y += 1; }
-      _ => {}
+      _ => { panic!("> _ < "); },
     }
     enumerate_hex_to_matrix(arena, visited, neib_index, next_index_x, next_index_y)
   }
@@ -279,7 +279,7 @@ fn clear_shadows(snap : &mut Snapshot) {
   }
 }
 
-fn calculate_price(snap : &mut Snapshot, arena : &Arena) {
+fn calculate_price(arena : &Arena, snap : &mut Snapshot) {
   let whoami = true;
   let myid = whoami as usize;
   let mut price = 0.0;
@@ -357,13 +357,80 @@ fn clear_map(map : &mut Map) {
   }
 }
 
-fn apply_step(snap : &Snapshot, action : String) -> Snapshot {
-  Snapshot{
-    state:State{day:0,nutrients:0,sun:vec![],score:vec![],is_waiting:vec![]},
-    map:vec![],
-    price:0.0,
-    path:vec![],
+fn apply_wait(arena : &Arena, snap : &mut Snapshot) {
+  let whoami = true;
+  let myid = whoami as usize;
+  for i in 0..snap.map.len() {
+    if snap.map[i].is_tree {
+      snap.map[i].is_dormant = false;
+      snap.map[i].is_shadowed = false;  
+    }
   }
+  calculate_shadowed_trees(arena, &mut snap.map, snap.state.day + 1);
+  for i in 0..snap.map.len() {
+    if snap.map[i].is_tree &&
+      (whoami == snap.map[i].is_mine) &&
+      (! snap.map[i].is_shadowed)
+    {
+      snap.state.sun[myid] += snap.map[i].tree_size;
+    }
+  }
+}
+
+fn apply_grow(arena : &Arena, snap : &mut Snapshot, index : usize) {
+  let whoami = true;
+  let myid = whoami as usize;
+  let tree_fix_cost = vec![0,1,3,7];
+  let tree_add_cost = get_trees_numbers(snap);
+  snap.map[index].is_dormant = true;
+  snap.map[index].tree_size += 1;
+  let new_size = snap.map[index].tree_size as usize;
+  snap.state.sun[myid] -= tree_fix_cost[new_size] + tree_add_cost[new_size];
+}
+
+fn apply_complete(arena : &Arena, snap : &mut Snapshot, index : usize) {
+  let whoami = true;
+  let myid = whoami as usize;
+  let richness_bonus = vec![0,0,2,4];
+  let richness = arena[index].richness as usize;
+  snap.state.score[myid] += snap.state.nutrients + richness_bonus[richness];
+  snap.state.nutrients -= 1;
+  if snap.state.nutrients < 0 { snap.state.nutrients = 0 }
+  snap.map[index].is_tree     = false;
+  snap.map[index].is_dormant  = false;
+  snap.map[index].is_mine     = false;
+  snap.map[index].is_shadowed = false;
+  snap.map[index].tree_size   = -1;
+}
+
+fn apply_seed(arena : &Arena, snap : &mut Snapshot, index_parent : usize, index_kid : usize) {
+  let whoami = true;
+  let myid = whoami as usize;
+  let tree_add_cost = get_trees_numbers(snap);
+  snap.map[index_parent].is_dormant = true;
+  snap.map[index_kid].is_dormant = true;
+  snap.map[index_kid].is_tree = true;
+  snap.map[index_kid].is_mine = whoami;
+  snap.map[index_kid].tree_size = 0;
+  snap.state.sun[myid] -= tree_add_cost[0];
+}
+
+fn apply_step(snap : &Snapshot, arena : &Arena, action : String) -> Snapshot {
+  let mut new_snapshot = clone_snapshot(snap);
+  new_snapshot.path.push(action.to_string());
+  let action_parts = action.split(" ").collect::<Vec<_>>();
+  match action_parts[0] {
+      "GROW" => apply_grow(arena, &mut new_snapshot, parse_input!(action_parts[1], usize)),
+      "SEED" => apply_seed(arena, &mut new_snapshot, parse_input!(action_parts[1], usize),parse_input!(action_parts[2], usize)),
+      "COMPLETE" => apply_complete(arena, &mut new_snapshot, parse_input!(action_parts[1], usize)),
+      "WAIT" => apply_wait(arena, &mut new_snapshot),
+      _ => { panic!("> _ <"); },
+  }
+  clear_shadows(&mut new_snapshot);
+  calculate_shadowed_trees(arena, &mut new_snapshot.map, new_snapshot.state.day+1);
+  calculate_price(arena, &mut new_snapshot);
+
+  new_snapshot
 }
 
 fn get_next_snapshots(snapshots_now : &mut Vec<Snapshot>, snapshots_next : &mut Vec<Snapshot>, arena : &Arena) {
@@ -374,7 +441,7 @@ fn get_next_snapshots(snapshots_now : &mut Vec<Snapshot>, snapshots_next : &mut 
       Some(snap) => {
         let actions = get_all_actions(&snap, arena);
         for a in actions {
-          let snap_new = apply_step(&snap, a);
+          let snap_new = apply_step(&snap, arena, a);
 
           if snapshots_next.len() == 0 {
             snapshots_next.push(snap_new);
@@ -408,7 +475,7 @@ fn choose_best_snapshots(
 {
   let mut iter_limit = amount as usize;
   let next_len = snapshots_next.len();
-  if iter_limit < next_len {
+  if next_len < iter_limit {
     iter_limit = next_len;
   }
   for i in 0..iter_limit {
@@ -422,7 +489,7 @@ fn get_next_step(snap : &mut Snapshot, arena : &Arena) -> String {
   let mut snapshots_next = vec![];
 
   calculate_shadowed_trees(&arena, &mut snap.map, snap.state.day+1);
-  calculate_price(snap, arena);
+  calculate_price(arena, snap);
 
   snapshots_now.push(clone_snapshot(snap));
   for _i in 0..1 {
