@@ -1,7 +1,5 @@
-mod bot {
-  
-}
 use std::io;
+use std::time::{Duration, Instant};
 
 macro_rules! parse_input {
   ($x:expr, $t:ident) => ($x.trim().parse::<$t>().unwrap())
@@ -285,15 +283,22 @@ fn calculate_price(arena : &Arena, snap : &mut Snapshot) {
   let mut price = 0.0;
   let max_days = 24;
   let day_muliplier = (max_days - snap.state.day) as f32/max_days as f32;
+  let mut new_suns = 0;
+
   for i in 0..arena.len() {
     if snap.map[i].is_tree && 
         snap.map[i].is_mine &&
         !snap.map[i].is_shadowed
     {
-      price += ((snap.map[i].tree_size + 1) * arena[i].richness) as f32 * day_muliplier;
+      price += ((2*snap.map[i].tree_size + 1) * arena[i].richness) as f32 * day_muliplier;
+      new_suns += snap.map[i].tree_size;
     }
   }
+
+  // let day_3 = (1.0 - day_muliplier)*(1.0 - day_muliplier)*(1.0 - day_muliplier)*(1.0 - day_muliplier);
   price += snap.state.score[myid] as f32 * (1.0 - day_muliplier);
+  // price += new_suns as f32 * day_muliplier;
+  // price += snap.state.sun[myid] as f32 * day_muliplier;
   snap.price = price;
 }
 
@@ -360,13 +365,15 @@ fn clear_map(map : &mut Map) {
 fn apply_wait(arena : &Arena, snap : &mut Snapshot) {
   let whoami = true;
   let myid = whoami as usize;
+
+  snap.state.day += 1;
   for i in 0..snap.map.len() {
     if snap.map[i].is_tree {
       snap.map[i].is_dormant = false;
       snap.map[i].is_shadowed = false;  
     }
   }
-  calculate_shadowed_trees(arena, &mut snap.map, snap.state.day + 1);
+  calculate_shadowed_trees(arena, &mut snap.map, snap.state.day);
   for i in 0..snap.map.len() {
     if snap.map[i].is_tree &&
       (whoami == snap.map[i].is_mine) &&
@@ -442,7 +449,6 @@ fn get_next_snapshots(snapshots_now : &mut Vec<Snapshot>, snapshots_next : &mut 
         let actions = get_all_actions(&snap, arena);
         for a in actions {
           let snap_new = apply_step(&snap, arena, a);
-
           if snapshots_next.len() == 0 {
             snapshots_next.push(snap_new);
           } else {
@@ -479,12 +485,15 @@ fn choose_best_snapshots(
     iter_limit = next_len;
   }
   for i in 0..iter_limit {
+    // eprintln!("{} {:?}", snapshots_next[i].price, snapshots_next[i].path);
     snapshots_now.push(clone_snapshot(&snapshots_next[i]));
   }
   snapshots_next.clear();
 }
 
 fn get_next_step(snap : &mut Snapshot, arena : &Arena) -> String {
+  let start = Instant::now();
+
   let mut snapshots_now = vec![];
   let mut snapshots_next = vec![];
 
@@ -492,12 +501,18 @@ fn get_next_step(snap : &mut Snapshot, arena : &Arena) -> String {
   calculate_price(arena, snap);
 
   snapshots_now.push(clone_snapshot(snap));
-  for _i in 0..1 {
+  let mut i = 0;
+  let mut duration = start.elapsed();
+  loop {
+    i += 1;
     get_next_snapshots(&mut snapshots_now, &mut snapshots_next, arena);
-    eprintln!("{} {}",&snapshots_now.len(), &snapshots_next.len());
-    choose_best_snapshots(&mut snapshots_now, &mut snapshots_next, 10);
-    eprintln!("{} {}",&snapshots_now.len(), &snapshots_next.len());  
+    choose_best_snapshots(&mut snapshots_now, &mut snapshots_next, 30);
+    duration = start.elapsed();
+    if duration.as_millis() > 75 {
+      break;
+    }
   }
+  eprintln!("{} {:?}", i, &duration);
   
   return snapshots_now[0].path[0].to_string()
 }
@@ -525,18 +540,12 @@ fn main() {
     clear_map(&mut snap.map);
     read_game_state(&mut snap.state);
     read_map(&mut snap.map);
-    let action_list_1 = read_actionlist();
-    let action_list_2 = get_all_actions(&snap, &arena);
-    eprintln!("{:?}", action_list_1);
-    eprintln!("{:?}", action_list_2);
-    let action = get_next_step(&mut snap, &arena);
-    eprintln!("{}", action);
-    print_map(&arena,&snap.map);
+    read_actionlist();
 
-    match action_list_1.last() {
-      None => println!("WAIT"),
-      Some(action) => println!("{}", action)
-    }
+    // print_map(&arena,&snap.map);
+
+    let action = get_next_step(&mut snap, &arena);
+    println!("{}", action);
   }
 }
 
