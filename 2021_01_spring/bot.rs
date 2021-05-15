@@ -199,23 +199,48 @@ fn print_map(arena : &Arena, map : &Map) {
   }
   eprintln!("{}",print_line);
 }
-// def print_arena(arena:List[Cell]):
-//   line = ["." for i in range(13)]
-//   matrix = [line[:] for i in range(7)]
 
-//   trees_shadowed = ["f", "t", "F", "T"]
-//   trees_opened = ["n", "m", "N", "M"]
+fn dist(h1 : &Hex, h2 : &Hex) -> i32 {
+  let dy = h1.index_y - h2.index_y;
+  let dx = h1.index_x - h2.index_x;
+  if dy.abs() < 2 { return dx.abs() }
+  return (dx.abs() + dy.abs())/2
+}
+
+// def calculate_shadowed_trees(arena:List[Cell],day:int) -> List[Cell]:
+//   direction_reversal = {0:3, 1:4, 2:5, 3:0, 4:1, 5:2}
+
+//   shadow_to = day % 6
+//   shadow_from = direction_reversal[shadow_to]
+  
+//   def cell_has_no_neighbour_at_direction(c: Cell, d:int) -> bool:
+//     return (c.neigh_index[d] == -1)
+
+//   shadow_casters: List[Cell] = []
 //   for a in arena:
-//     dx = a.index_x
-//     dy = a.index_y
-//     matrix[dx][dy] = str(a.richness)
-//     if a.is_tree:
-//       if a.is_shadowed:
-//         matrix[dx][dy] = trees_shadowed[a.tree_size]
-//       else:
-//         matrix[dx][dy] = trees_opened[a.tree_size]
+//     if cell_has_no_neighbour_at_direction(a,shadow_from):
+//       shadow_casters.append(a)
+  
+//   while len(shadow_casters) > 0:
+//     sc = shadow_casters.pop(0)
+//     if sc.is_tree:
+//       neigh_last = sc
+//       for i in range(sc.tree_size):
+//         neigh_index = neigh_last.neigh_index[shadow_to]
+//         if neigh_index == -1:
+//           break
+//         else:
+//           neigh = arena[neigh_index]
+//           if neigh.is_tree and (neigh.tree_size <= sc.tree_size):
+//             neigh.is_shadowed = True
+//           neigh_last = neigh
 
-//   print_matrix(matrix)
+//     neigh_index = sc.neigh_index[shadow_to]
+//     if neigh_index != -1:
+//       neigh = arena[neigh_index]
+//       shadow_casters.append(neigh)
+
+//   return arena
 
 fn main() {
   let mut arena = read_arena();
@@ -248,27 +273,63 @@ mod tests {
 
   fn get_starting_snapshot() -> Snapshot {
     let mut arena = vec![];
-    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 3,
       neighbors_ids: vec![1,2,3,4,5,6],
     }); // 0
-    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
-      neighbors_ids: vec![-1,-1,2,0,6,-1],
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 3,
+      neighbors_ids: vec![7,8,2,0,6,18],
     }); // 1
-    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
-      neighbors_ids: vec![-1,-1,-1,3,0,1],
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 3,
+      neighbors_ids: vec![8,9,10,3,0,1],
     }); // 2
-    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
-      neighbors_ids: vec![2,-1,-1,-1,4,0],
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 3,
+      neighbors_ids: vec![2,10,11,12,4,0],
     }); // 3
-    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
-      neighbors_ids: vec![0,3,-1,-1,-1,5],
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 3,
+      neighbors_ids: vec![0,3,12,13,14,5],
     }); // 4
-    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
-      neighbors_ids: vec![6,0,4,-1,-1,-1],
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 3,
+      neighbors_ids: vec![6,0,4,14,15,16],
     }); // 5
-    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
-      neighbors_ids: vec![-1,1,0,5,5-1,-1],
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 3,
+      neighbors_ids: vec![18,1,0,5,16,17],
     }); // 6
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
+      neighbors_ids: vec![-1,-1,8,1,18,-1],
+    }); // 7
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
+      neighbors_ids: vec![-1,-1,9,2,1,7],
+    }); // 8
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
+      neighbors_ids: vec![-1,-1,-1,10,2,8],
+    }); // 9
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
+      neighbors_ids: vec![9,-1,-1,11,3,2],
+    }); // 10
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
+      neighbors_ids: vec![10,-1,-1,-1,12,3],
+    }); // 11
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
+      neighbors_ids: vec![3,11,-1,-1,13,4],
+    }); // 12
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
+      neighbors_ids: vec![4,12,-1,-1,-1,14],
+    }); // 13
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
+      neighbors_ids: vec![5,4,13,-1,-1,15],
+    }); // 14
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
+      neighbors_ids: vec![16,5,14,-1,-1,-1],
+    }); // 15
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
+      neighbors_ids: vec![17,6,5,15,-1,-1],
+    }); // 16
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
+      neighbors_ids: vec![-1,18,6,16,-1,-1],
+    }); // 17
+    arena.push(Hex{index_x: -1,index_y: -1,richness: 2,
+      neighbors_ids: vec![-1,7,1,6,17,-1],
+    }); // 18
 
     let mut visited = vec![];
     for _i in 0..37 {
@@ -317,5 +378,23 @@ mod tests {
 
     assert_eq!(snap.arena[6].index_x, 4);
     assert_eq!(snap.arena[6].index_y, 7);
+  }
+
+  #[test]
+  fn test_dist() {
+    let snap = get_starting_snapshot();
+    let s0 = &snap.arena[0];
+    for s in &snap.arena {
+      if (s.index_x == s0.index_x) && (s.index_y == s0.index_y) {
+        assert_eq!(dist(s, s0), 0);
+      } else {
+        if s.richness == 3 {
+          assert_eq!(dist(s, s0), 1);
+        }
+        if s.richness == 2 {
+          assert_eq!(dist(s, s0), 2);
+        }
+      }
+    }
   }
 }
