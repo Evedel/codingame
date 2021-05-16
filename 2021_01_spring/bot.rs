@@ -76,12 +76,10 @@ fn clone_snapshot(snap : &Snapshot) -> Snapshot {
 }
 
 fn read_map(map : &mut Map) {
-  let mut input_line = String::new();
-  io::stdin().read_line(&mut input_line).unwrap();
+  let input_line = read_input_line();
   let number_of_trees = parse_input!(input_line, i32); // the current amount of trees
   for _i in 0..number_of_trees as usize {
-    let mut input_line = String::new();
-    io::stdin().read_line(&mut input_line).unwrap();
+    let input_line = read_input_line();
     let inputs = input_line.split(" ").collect::<Vec<_>>();
     let index = parse_input!(inputs[0], usize); // location of this tree
     let size = parse_input!(inputs[1], i32); // size of this tree: 0-3
@@ -97,12 +95,10 @@ fn read_map(map : &mut Map) {
 
 fn read_actionlist() -> ActionList {
   let mut action_list = vec![];
-  let mut input_line = String::new();
-  io::stdin().read_line(&mut input_line).unwrap();
+  let input_line = read_input_line();
   let number_of_possible_actions = parse_input!(input_line, i32); // all legal actions
   for _i in 0..number_of_possible_actions as usize {
-    let mut input_line = String::new();
-    io::stdin().read_line(&mut input_line).unwrap();
+    let input_line = read_input_line();
     let possible_action = input_line.trim_matches('\n').to_string(); // try printing something from here to start with
     action_list.push(String::from(&possible_action));
   }
@@ -110,14 +106,11 @@ fn read_actionlist() -> ActionList {
 }
 
 fn read_game_state(state: &mut State) {
-  let mut input_line = String::new();
-  io::stdin().read_line(&mut input_line).unwrap();
+  let input_line = read_input_line();
   state.day = parse_input!(input_line, i32); // the game lasts 24 days: 0-23
-  let mut input_line = String::new();
-  io::stdin().read_line(&mut input_line).unwrap();
+  let input_line = read_input_line();
   state.nutrients = parse_input!(input_line, i32); // the base score you gain from the next COMPLETE action
-  let mut input_line = String::new();
-  io::stdin().read_line(&mut input_line).unwrap();
+  let input_line = read_input_line();
   let inputs = input_line.split(" ").collect::<Vec<_>>();
   // let mut sun = vec![];
   // let mut score = vec![];
@@ -125,8 +118,7 @@ fn read_game_state(state: &mut State) {
   state.sun[1] = parse_input!(inputs[0], i32);
   state.score[1] = parse_input!(inputs[1], i32);
   state.is_waiting[1] = false;
-  let mut input_line = String::new();
-  io::stdin().read_line(&mut input_line).unwrap();
+  let input_line = read_input_line();
   let inputs = input_line.split(" ").collect::<Vec<_>>();
   state.sun[0] = parse_input!(inputs[0], i32);
   state.score[0] = parse_input!(inputs[1], i32);
@@ -135,13 +127,11 @@ fn read_game_state(state: &mut State) {
 
 fn read_arena() -> Arena {
   let mut arena = vec![];
-  let mut input_line = String::new();
-  io::stdin().read_line(&mut input_line).unwrap();
+  let input_line = read_input_line();
   let number_of_cells = parse_input!(input_line, i32); // 37
   for _i in 0..number_of_cells as usize {
-    let mut input_line = String::new();
     let mut neighbors_ids = vec![];
-    io::stdin().read_line(&mut input_line).unwrap();
+    let input_line = read_input_line();
     let inputs = input_line.split(" ").collect::<Vec<_>>();
     let _index = parse_input!(inputs[0], i32); // 0 is the center cell, the next cells spiral outwards
     let richness = parse_input!(inputs[1], i32); // 0 if the cell is unusable, 1-3 for usable cells
@@ -152,6 +142,13 @@ fn read_arena() -> Arena {
   }
 
   arena
+}
+
+fn read_input_line() -> String {
+  let mut input_line = String::new();
+  io::stdin().read_line(&mut input_line).unwrap();
+  // eprintln!("{}", input_line);
+  input_line
 }
 
 fn enumerate_hex_to_matrix(
@@ -281,23 +278,27 @@ fn calculate_price(arena : &Arena, snap : &mut Snapshot) {
   let whoami = true;
   let myid = whoami as usize;
   let mut price = 0.0;
-  let max_days = 24;
-  let day_muliplier = (max_days - snap.state.day) as f32/max_days as f32;
-  let mut new_suns = 0;
+  let max_days = 24.0;
+  let day_muliplier = (max_days - snap.state.day as f32)/max_days;
+  // let mut new_suns = 0;
 
+  let mut day_switch = 1.0;
+  if snap.state.day < 20 {
+    day_switch = 0.1;
+  }
   for i in 0..arena.len() {
     if snap.map[i].is_tree && 
         snap.map[i].is_mine &&
         !snap.map[i].is_shadowed
     {
-      price += ((2*snap.map[i].tree_size + 1) * arena[i].richness) as f32 * day_muliplier;
-      new_suns += snap.map[i].tree_size;
+      let tree_size_price = (snap.map[i].tree_size*snap.map[i].tree_size) as f32 + 1.0*day_switch;
+      price += tree_size_price*arena[i].richness as f32 * day_muliplier;
+      // new_suns += snap.map[i].tree_size;
     }
   }
 
-  // let day_3 = (1.0 - day_muliplier)*(1.0 - day_muliplier)*(1.0 - day_muliplier)*(1.0 - day_muliplier);
-  price += snap.state.score[myid] as f32 * (1.0 - day_muliplier);
-  // price += new_suns as f32 * day_muliplier;
+  price += snap.state.score[myid] as f32 * day_switch;
+  // price += new_suns as f32 * day_muliplier * (1.0 - day_switch);
   // price += snap.state.sun[myid] as f32 * day_muliplier;
   snap.price = price;
 }
@@ -363,6 +364,16 @@ fn clear_map(map : &mut Map) {
 }
 
 fn apply_wait(arena : &Arena, snap : &mut Snapshot) {
+  if snap.state.day == 23 {
+    let path_len = snap.path.len();
+    if path_len > 2 {
+      if snap.path[path_len-1] == "WAIT" && snap.path[path_len-2] == "WAIT" {
+        snap.path.pop();
+      }
+    }
+    return
+  }
+
   let whoami = true;
   let myid = whoami as usize;
 
@@ -384,7 +395,7 @@ fn apply_wait(arena : &Arena, snap : &mut Snapshot) {
   }
 }
 
-fn apply_grow(arena : &Arena, snap : &mut Snapshot, index : usize) {
+fn apply_grow(snap : &mut Snapshot, index : usize) {
   let whoami = true;
   let myid = whoami as usize;
   let tree_fix_cost = vec![0,1,3,7];
@@ -410,7 +421,7 @@ fn apply_complete(arena : &Arena, snap : &mut Snapshot, index : usize) {
   snap.map[index].tree_size   = -1;
 }
 
-fn apply_seed(arena : &Arena, snap : &mut Snapshot, index_parent : usize, index_kid : usize) {
+fn apply_seed(snap : &mut Snapshot, index_parent : usize, index_kid : usize) {
   let whoami = true;
   let myid = whoami as usize;
   let tree_add_cost = get_trees_numbers(snap);
@@ -427,8 +438,8 @@ fn apply_step(snap : &Snapshot, arena : &Arena, action : String) -> Snapshot {
   new_snapshot.path.push(action.to_string());
   let action_parts = action.split(" ").collect::<Vec<_>>();
   match action_parts[0] {
-      "GROW" => apply_grow(arena, &mut new_snapshot, parse_input!(action_parts[1], usize)),
-      "SEED" => apply_seed(arena, &mut new_snapshot, parse_input!(action_parts[1], usize),parse_input!(action_parts[2], usize)),
+      "GROW" => apply_grow(&mut new_snapshot, parse_input!(action_parts[1], usize)),
+      "SEED" => apply_seed(&mut new_snapshot, parse_input!(action_parts[1], usize),parse_input!(action_parts[2], usize)),
       "COMPLETE" => apply_complete(arena, &mut new_snapshot, parse_input!(action_parts[1], usize)),
       "WAIT" => apply_wait(arena, &mut new_snapshot),
       _ => { panic!("> _ <"); },
@@ -477,44 +488,53 @@ fn get_next_snapshots(snapshots_now : &mut Vec<Snapshot>, snapshots_next : &mut 
 fn choose_best_snapshots(
   snapshots_now : &mut Vec<Snapshot>,
   snapshots_next: &mut Vec<Snapshot>,
-  amount: i32)
+  amount: &mut i32)
 {
-  let mut iter_limit = amount as usize;
+  let mut iter_limit = *amount as usize;
   let next_len = snapshots_next.len();
   if next_len < iter_limit {
     iter_limit = next_len;
   }
+  let mut print_limit = 5;
+  if iter_limit < print_limit {
+    print_limit = iter_limit;
+  }
+  for j in 0..print_limit {
+    eprintln!("{} {:?}", snapshots_next[j].price, snapshots_next[j].path);
+  }
   for i in 0..iter_limit {
-    // eprintln!("{} {:?}", snapshots_next[i].price, snapshots_next[i].path);
     snapshots_now.push(clone_snapshot(&snapshots_next[i]));
   }
   snapshots_next.clear();
 }
 
-fn get_next_step(snap : &mut Snapshot, arena : &Arena) -> String {
+fn get_next_step(snap : &mut Snapshot, arena : &Arena, layer_size : &mut i32) -> String {
   let start = Instant::now();
 
-  let mut snapshots_now = vec![];
-  let mut snapshots_next = vec![];
+  let mut snap_now = vec![];
+  let mut snap_next = vec![];
 
   calculate_shadowed_trees(&arena, &mut snap.map, snap.state.day+1);
   calculate_price(arena, snap);
 
-  snapshots_now.push(clone_snapshot(snap));
+  snap_now.push(clone_snapshot(snap));
   let mut i = 0;
-  let mut duration = start.elapsed();
+  let mut duration;
   loop {
     i += 1;
-    get_next_snapshots(&mut snapshots_now, &mut snapshots_next, arena);
-    choose_best_snapshots(&mut snapshots_now, &mut snapshots_next, 30);
+    get_next_snapshots(&mut snap_now, &mut snap_next, arena);
+    choose_best_snapshots(&mut snap_now, &mut snap_next, layer_size);
     duration = start.elapsed();
     if duration.as_millis() > 75 {
       break;
     }
   }
-  eprintln!("{} {:?}", i, &duration);
+  if i > 100 {
+    *layer_size += 5;
+  }
+  eprintln!("{} {} {:?}", i, layer_size, &duration);
   
-  return snapshots_now[0].path[0].to_string()
+  return snap_now[0].path[0].to_string()
 }
 
 fn main() {
@@ -536,6 +556,7 @@ fn main() {
   let state = State{day:0,nutrients:0,is_waiting:vec![false,false],score:vec![0,0],sun:vec![0,0]};
   let mut snap = Snapshot{map:map, state:state,price:0.0,path:vec![]};
   enumerate_hex_to_matrix(&mut arena, &mut visited, 0, 3, 6);
+  let mut layer_size = 20;
   loop {
     clear_map(&mut snap.map);
     read_game_state(&mut snap.state);
@@ -543,8 +564,7 @@ fn main() {
     read_actionlist();
 
     // print_map(&arena,&snap.map);
-
-    let action = get_next_step(&mut snap, &arena);
+    let action = get_next_step(&mut snap, &arena, &mut layer_size);
     println!("{}", action);
   }
 }
