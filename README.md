@@ -16,3 +16,10 @@
 605 / 6419 = 9.4%
 
 <img src="https://github.com/Evedel/Codingame/blob/master/2020_2_fall_challenge/2020_2.png" width="400">
+
+# 2020 Fall Challenge
+([click](https://www.codingame.com/challengereport/3371239740157834c952904585415a04dbd3dc6c))
+
+2087 / 6867 = 30% `=(`
+
+<img src="https://github.com/Evedel/Codingame/blob/master/2021_01_spring/2021_1.png" width="400">
