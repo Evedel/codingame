@@ -275,15 +275,28 @@ class GameLogic:
         command = "WAIT"
 
         my_wariors = self.find_units_by_type(units, EntityType.MyWarior)
+
         if len(my_wariors) < 2:
             command = self.convert_nuetral(units, map)
         else:
-            command = self.fight(units, map)
+            command = self.fight_general(units, map)
+
+        # command is WAIT  => no enemy units reachable
+        if command == "WAIT":
+            command = self.convert_nuetral(units, map)
+
+        # cannot reach any units to convert
+        if command == "WAIT":
+            neutrals = self.find_units_by_type(units, EntityType.Neutral)
+            # but still there are some other neutrals
+            # then lets try to shuffle my furthest warrior closser to enemy leader
+            if len(neutrals) > 0:
+                command = self.fight_shuffle_closer_to_leader(units, map)
+
         return command
 
-    def fight(self, units: list[Unit], map: list[list[Cell]]):
+    def fight_general(self, units: list[Unit], map: list[list[Cell]]):
         ps = PathSearcher()
-        my_leader = self.find_units_by_type(units, EntityType.MyLeader)[0]
         my_wariors = self.find_units_by_type(units, EntityType.MyWarior)
         en_leader = self.find_units_by_type(units, EntityType.EnLeader)[0]
         en_wariors = self.find_units_by_type(units, EntityType.EnWarior)
@@ -317,15 +330,55 @@ class GameLogic:
                 closest_waroir = w
                 closest_path = path
 
-        p0 = (closest_waroir.pos_x, closest_waroir.pos_y)
-        p1 = (closest_enemy.pos_x, closest_enemy.pos_y)
-        dist = ps.dist(p0[0], p0[1], p1[0], p1[1])
-        are_there_walls = ps.walls_collision(p0[0], p0[1], p1[0], p1[1], map)
+        command = "WAIT"
         if closest_path is not None:
-            if (dist < 6) and not are_there_walls:
-                command = f"{closest_waroir.id} SHOOT {closest_enemy.id}"
-            else:
-                command = f"{closest_waroir.id} MOVE {closest_path.path[1][0]} {closest_path.path[1][1]}"
+            p0 = (closest_waroir.pos_x, closest_waroir.pos_y)
+            p1 = (closest_enemy.pos_x, closest_enemy.pos_y)
+            dist = ps.dist(p0[0], p0[1], p1[0], p1[1])
+            if dist < 6:
+                are_there_walls = ps.walls_collision(p0[0], p0[1], p1[0], p1[1], map)
+                if not are_there_walls:
+                    command = f"{closest_waroir.id} SHOOT {closest_enemy.id}"
+                else:
+                    command = f"{closest_waroir.id} MOVE {closest_path.path[1][0]} {closest_path.path[1][1]}"
+
+        return command
+
+    def fight_shuffle_closer_to_leader(self, units: list[Unit], map: list[list[Cell]]):
+        ps = PathSearcher()
+        my_wariors = self.find_units_by_type(units, EntityType.MyWarior)
+        en_leader = self.find_units_by_type(units, EntityType.EnLeader)[0]
+
+        best_warior = None
+        best_dist = 0
+        for w in my_wariors:
+            dist = ps.dist(
+                w.pos_x,
+                w.pos_y,
+                en_leader.pos_x,
+                en_leader.pos_y,
+            )
+            if dist > best_dist:
+                best_dist = dist
+                best_warior = w
+
+        moves = ps.get_possible_moves(best_warior.pos_x, best_warior.pos_y, map)
+        best_move = None
+        best_dist = 1000
+        for m in moves:
+            dist = ps.dist(
+                m[0],
+                m[1],
+                en_leader.pos_x,
+                en_leader.pos_y,
+            )
+            if dist < best_dist:
+                best_dist = dist
+                best_move = m
+
+        command = "WAIT"
+        if best_warior is not None:
+            command = f"{best_warior.id} MOVE {best_move[0]} {best_move[1]}"
 
         return command
 

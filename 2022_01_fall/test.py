@@ -665,6 +665,106 @@ class TestPathSearcher(unittest.TestCase):
         are_there_walls = ps.walls_collision(6, 2, 4, 1, map)
         self.assertTrue(are_there_walls)
 
+    def test_full_case_when_no_en_units_reachable_for_my_warriors(self):
+        init = [
+            "1",
+            "13 7",
+            "..x.x...x.x..",
+            "x...........x",
+            ".x...x.x...x.",
+            "...x.....x...",
+            "....x...x....",
+            "...xx...xx...",
+            ".x..x...x..x.",
+        ]
+        turn = [
+            "14",
+            "0 1 10 2 4 0",
+            "1 1 10 9 2 1",
+            "2 0 10 3 6 2",
+            "3 0 10 2 5 0",
+            "4 0 10 4 2 2",
+            "5 0 10 4 3 2",
+            "6 0 10 3 1 2",
+            "7 0 10 6 2 2",
+            "8 0 10 10 6 2",
+            "9 0 10 10 4 1",
+            "10 0 10 8 2 1",
+            "11 0 10 8 3 2",
+            "12 0 10 9 1 2",
+            "13 0 10 6 5 2",
+        ]
+
+        command, _, _ = self.__run_turn(init + turn)
+        self.assertEqual(command, "1 CONVERT 12")
+
+    def test_full_case_when_no_en_units_and_neutrals_are_reachable_but_there_are_some_neutrals(
+        self,
+    ):
+        init = [
+            "1",
+            "13 7",
+            "..x.x...x.x..",
+            "x...........x",
+            ".x...x.x...x.",
+            "...x.....x...",
+            "....x...x....",
+            "...xx...xx...",
+            ".x..x...x..x.",
+        ]
+        turn = [
+            "14",
+            "0 1 10 2 3 0",
+            "1 1 10 11 5 1",
+            "2 0 10 3 6 2",
+            "3 0 10 2 5 0",
+            "4 0 10 4 1 2",
+            "5 0 10 4 2 2",
+            "6 0 10 2 2 0",
+            "7 0 10 6 2 2",
+            "8 0 10 10 5 1",
+            "9 0 10 10 4 1",
+            "10 0 10 8 2 1",
+            "11 0 10 6 5 2",
+            "12 0 10 9 1 1",
+            "13 0 10 7 5 2",
+        ]
+        # lets then make the furthers warrior to approach enemy leader
+        command, _, _ = self.__run_turn(init + turn)
+        self.assertEqual(command, "8 MOVE 10 6")
+
+    def test_full_case_stuck_02(self):
+        init = [
+            "1",
+            "13 7",
+            "xx.........xx",
+            ".x.........x.",
+            ".............",
+            ".............",
+            "...x.....x...",
+            "..x.......x..",
+            ".x.........x.",
+        ]
+        turn = [
+            "14",
+            "0 1 10 1 2 0",
+            "1 1 10 11 2 1",
+            "2 0 10 9 1 2",
+            "3 0 10 2 2 0",
+            "4 0 10 3 6 2",
+            "5 0 10 2 1 2",
+            "6 0 10 2 3 0",
+            "7 0 10 5 1 2",
+            "8 0 10 8 3 2",
+            "9 0 10 10 2 1",
+            "10 0 10 9 6 2",
+            "11 0 10 6 1 2",
+            "12 0 10 10 3 1",
+            "13 0 10 10 1 2",
+        ]
+        command, _, _ = self.__run_turn(init + turn)
+        self.assertEqual(command, "12 MOVE 9 3")
+
 
 # TODO:
 # when my leader is at risk
