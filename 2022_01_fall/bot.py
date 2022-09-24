@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from mimetypes import common_types
 import sys
 import math
 import copy
@@ -65,7 +66,9 @@ class PathSearcher:
             moves.append((x, y + 1))
         return moves
 
-    def get_occupied_by(self, x: int, y: int, unit_type: EntityType, map: list[list[Cell]]):
+    def get_occupied_by(
+        self, x: int, y: int, unit_type: EntityType, map: list[list[Cell]]
+    ):
         moves = []
         if x > 0 and map[y][x - 1].entity == unit_type:
             moves.append((x - 1, y))
@@ -81,15 +84,23 @@ class PathSearcher:
     def dist(x1, y1, x2, y2):
         return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
-    def path_search(self, from_x: int, from_y: int, to_x: int, to_y: int, map: list[list[Cell]], unit_type: EntityType = EntityType.Empty):
+    def path_search(
+        self,
+        from_x: int,
+        from_y: int,
+        to_x: int,
+        to_y: int,
+        map: list[list[Cell]],
+        unit_type: EntityType = EntityType.Empty,
+    ):
         path_queue = [
             self.Path(
                 path=[(from_x, from_y)],
                 cost=0,
-                dist= PathSearcher.dist(from_x, from_y, to_x, to_y)
+                dist=PathSearcher.dist(from_x, from_y, to_x, to_y),
             )
         ]
-        
+
         InputHandler.ddp("Searching path from", from_x, from_y, "to", to_x, to_y)
         iter = 0
         while True:
@@ -100,9 +111,16 @@ class PathSearcher:
             if len(path_queue) == 0:
                 return None
             current_path = path_queue.pop(0)
-            moves = self.get_occupied_by(current_path.path[-1][0], current_path.path[-1][1], EntityType.Empty, map)
+            moves = self.get_occupied_by(
+                current_path.path[-1][0],
+                current_path.path[-1][1],
+                EntityType.Empty,
+                map,
+            )
             if unit_type != EntityType.Empty:
-                units = self.get_occupied_by(current_path.path[-1][0], current_path.path[-1][1], unit_type, map)
+                units = self.get_occupied_by(
+                    current_path.path[-1][0], current_path.path[-1][1], unit_type, map
+                )
                 for unit in units:
                     if unit[0] == to_x and unit[1] == to_y:
                         new_path = copy.deepcopy(current_path)
@@ -126,12 +144,17 @@ class PathSearcher:
                         # insert before the next path with a bigger dist
                         path_queue.insert(
                             next(
-                                (i for i, path in enumerate(path_queue) if path.dist > new_path.dist),
-                                len(path_queue)
+                                (
+                                    i
+                                    for i, path in enumerate(path_queue)
+                                    if path.dist > new_path.dist
+                                ),
+                                len(path_queue),
                             ),
-                            new_path
+                            new_path,
                         )
             # sleep(2)
+
 
 class GameLogic:
     def find_units_by_type(self, units: list[Unit], type: EntityType):
@@ -149,39 +172,24 @@ class GameLogic:
 
         return nearest_neutral
 
-    def convert_nuetral(self, leader, neutral, map):
+    def convert_nuetral(self, units: list[Unit], map: list[list[Cell]]):
         ps = PathSearcher()
-        # InputHandler.dp(leader, neutral)
-        path = ps.path_search(
-            leader.pos_x, leader.pos_y,
-            neutral.pos_x, neutral.pos_y,
-            map,
-            EntityType.Neutral
-        )
-        # InputHandler.print_path(map, path.path)
-        if len(path.path) == 2:
-            command = f'{leader.id} CONVERT {neutral.id}'
-        else:
-            command = f'{leader.id} MOVE {path.path[1][0]} {path.path[1][1]}'
-        
-        return command
-    
-    def make_turn(self, units: list[Unit], map: list[list[Cell]]):
-        ps = PathSearcher()
-        
+
         my_leader = self.find_units_by_type(units, EntityType.MyLeader)[0]
         neutrals = self.find_units_by_type(units, EntityType.Neutral)
 
-        command = 'WAIT'
+        command = "WAIT"
         best_path = None
         best_cost = 1000
         best_neutral = None
         for neutral in neutrals:
             path = ps.path_search(
-                my_leader.pos_x, my_leader.pos_y,
-                neutral.pos_x, neutral.pos_y,
+                my_leader.pos_x,
+                my_leader.pos_y,
+                neutral.pos_x,
+                neutral.pos_y,
                 map,
-                EntityType.Neutral
+                EntityType.Neutral,
             )
             if path is not None and path.cost <= best_cost:
                 best_path = path
@@ -190,10 +198,75 @@ class GameLogic:
 
         if best_path is not None:
             if len(best_path.path) == 2:
-                command = f'{my_leader.id} CONVERT {best_neutral.id}'
+                command = f"{my_leader.id} CONVERT {best_neutral.id}"
             else:
-                command = f'{my_leader.id} MOVE {best_path.path[1][0]} {best_path.path[1][1]}'
+                command = (
+                    f"{my_leader.id} MOVE {best_path.path[1][0]} {best_path.path[1][1]}"
+                )
         return command
+
+    def make_turn(self, units: list[Unit], map: list[list[Cell]]):
+        command = "WAIT"
+
+        my_wariors = self.find_units_by_type(units, EntityType.MyWarior)
+        if len(my_wariors) < 2:
+            command = self.convert_nuetral(units, map)
+        else:
+            command = self.fight(units, map)
+        return command
+
+    def fight(self, units: list[Unit], map: list[list[Cell]]):
+        ps = PathSearcher()
+        my_leader = self.find_units_by_type(units, EntityType.MyLeader)[0]
+        my_wariors = self.find_units_by_type(units, EntityType.MyWarior)
+        en_leader = self.find_units_by_type(units, EntityType.EnLeader)[0]
+        en_wariors = self.find_units_by_type(units, EntityType.EnWarior)
+
+        closest_enemy = None
+        closest_waroir = None
+        closest_path = None
+        closest_dist = 1000
+        for w in my_wariors:
+            for e in en_wariors:
+                path = ps.path_search(
+                    w.pos_x, w.pos_y, e.pos_x, e.pos_y, map, EntityType.EnWarior
+                )
+                if path is not None and path.cost < closest_dist:
+                    closest_dist = path.cost
+                    closest_enemy = e
+                    closest_waroir = w
+                    closest_path = path
+        for w in my_wariors:
+            path = ps.path_search(
+                w.pos_x,
+                w.pos_y,
+                en_leader.pos_x,
+                en_leader.pos_y,
+                map,
+                EntityType.EnWarior,
+            )
+            if path is not None and path.cost < closest_dist:
+                closest_dist = path.cost
+                closest_enemy = en_leader
+                closest_waroir = w
+                closest_path = path
+
+        if closest_path is not None:
+            if (
+                ps.dist(
+                    closest_waroir.pos_x,
+                    closest_waroir.pos_y,
+                    closest_enemy.pos_x,
+                    closest_enemy.pos_y,
+                )
+                < 6
+            ):
+                command = f"{closest_waroir.id} ATTACK {closest_enemy.id}"
+            else:
+                command = f"{closest_waroir.id} MOVE {closest_path.path[1][0]} {closest_path.path[1][1]}"
+
+        return command
+
 
 class InputHandler:
     __DEBUG__ = False
@@ -221,7 +294,7 @@ class InputHandler:
         print(file=sys.stderr)
         for row in map:
             for cell in row:
-                print(cell.to_map(), end=' ', file=sys.stderr)
+                print(cell.to_map(), end=" ", file=sys.stderr)
             print(file=sys.stderr)
 
     @staticmethod
@@ -230,9 +303,9 @@ class InputHandler:
         for y, row in enumerate(map):
             for x, cell in enumerate(row):
                 if ((x, y) in path) and cell.entity == EntityType.Empty:
-                    print('+', end=' ', file=sys.stderr)
+                    print("+", end=" ", file=sys.stderr)
                 else:
-                    print(cell.to_map(), end=' ', file=sys.stderr)
+                    print(cell.to_map(), end=" ", file=sys.stderr)
             print(file=sys.stderr)
 
     def read_initial_input(self, map):
@@ -244,16 +317,16 @@ class InputHandler:
             line = self.input()
             for j, c in enumerate(line):
                 unit_type = EntityType.Empty
-                if c == '.':
+                if c == ".":
                     unit_type = EntityType.Empty
-                elif c == 'x':
-                    unit_type = EntityType.Wall        
-                map[i].append(Cell(
-                    entity=unit_type
-                ))
+                elif c == "x":
+                    unit_type = EntityType.Wall
+                map[i].append(Cell(entity=unit_type))
         return map
 
-    def read_turn_input(self, map: list[list[Cell]], units: list[Unit], map0: list[list[Cell]]):
+    def read_turn_input(
+        self, map: list[list[Cell]], units: list[Unit], map0: list[list[Cell]]
+    ):
         units.clear()
         map = copy.deepcopy(map0)
         num_of_units = int(self.input())
@@ -268,13 +341,14 @@ class InputHandler:
                 entity_type = EntityType.MyWarior
             if (unit_type == 1) and (owner == 0):
                 entity_type = EntityType.MyLeader
-            if (owner == 2):
+            if owner == 2:
                 entity_type = EntityType.Neutral
 
             map[y][x].entity = entity_type
             units.append(Unit(unit_id, entity_type, x, y))
 
         return map, units
+
 
 def main():
     dp = InputHandler.dp
@@ -284,14 +358,12 @@ def main():
     def move_leader_to_neutral():
         pass
 
-    map0:list[list[Cell]] = []
-    
-    map:list[list[Cell]] = []
+    map0: list[list[Cell]] = []
+
+    map: list[list[Cell]] = []
     units: list[Unit] = []
 
-    ih = InputHandler(
-        input=InputHandler.__input_debugger__
-    )
+    ih = InputHandler(input=InputHandler.__input_debugger__)
     gl = GameLogic()
 
     map0 = ih.read_initial_input(map0)
@@ -301,6 +373,7 @@ def main():
         command = gl.make_turn(units, map)
         # WAIT | unitId MOVE x y | unitId SHOOT target| unitId CONVERT target
         print(command)
+
 
 if __name__ == "__main__":
     main()
