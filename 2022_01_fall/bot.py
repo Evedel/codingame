@@ -261,7 +261,7 @@ class GameLogic:
                 )
                 < 6
             ):
-                command = f"{closest_waroir.id} ATTACK {closest_enemy.id}"
+                command = f"{closest_waroir.id} SHOOT {closest_enemy.id}"
             else:
                 command = f"{closest_waroir.id} MOVE {closest_path.path[1][0]} {closest_path.path[1][1]}"
 

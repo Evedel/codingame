@@ -492,6 +492,39 @@ class TestPathSearcher(unittest.TestCase):
         command = self.__run_turn(init + turn)
         self.assertEqual(command, "5 MOVE 4 4")
 
+    def test_full_case_03(self):
+        init = [
+            "0",
+            "13 7",
+            "x...........x",
+            "x....x.x....x",
+            "...x.x.x.x...",
+            ".xx.......xx.",
+            ".............",
+            ".............",
+            "...x.x.x.x...",
+        ]
+        turn = [
+            "14",
+            "0 1 10 2 4 0",
+            "1 1 10 9 5 1",
+            "2 0 10 4 1 2",
+            "3 0 10 4 0 2",
+            "4 0 10 1 2 0",
+            "5 0 10 5 4 0",
+            "6 0 10 2 6 2",
+            "7 0 10 2 0 2",
+            "8 0 10 8 2 2",
+            "9 0 10 8 0 2",
+            "10 0 10 9 0 2",
+            "11 0 10 8 5 1",
+            "12 0 10 10 6 1",
+            "13 0 10 9 1 2",
+        ]
+
+        command = self.__run_turn(init + turn)
+        self.assertEqual(command, "5 SHOOT 11")
+
 
 if __name__ == "__main__":
     unittest.main()
