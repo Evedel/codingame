@@ -290,17 +290,12 @@ class GameLogic:
 
         command = self.check_convenient_convert(my_leader, neutrals)
 
-        InputHandler.ddp(command)
+        command = self.check_convenient_shoot(units, map)
 
-        if command == "WAIT":
-            if len(my_wariors) < 2:
-                command = self.convert_nuetral(units, map)
-            else:
-                command = self.fight_general(units, map)
-
-        # command is WAIT  => no enemy units reachable
         if command == "WAIT":
             command = self.convert_nuetral(units, map)
+
+        InputHandler.ddp(command)
 
         # cannot reach any units to convert
         if command == "WAIT":
@@ -373,6 +368,29 @@ class GameLogic:
                 )
                 return f"{my_leader.id} CONVERT {n.id}"
         return "WAIT"
+
+    def check_convenient_shoot(self, units: list[Unit], map: list[Unit]):
+        ps = PathSearcher()
+        my_wariors = self.find_units_by_type(units, EntityType.MyWarior)
+        en_leaders = self.find_units_by_type(units, EntityType.EnLeader)
+        en_wariors = self.find_units_by_type(units, EntityType.EnWarior)
+
+        closest_enemy = None
+        closest_waroir = None
+        closest_dist = 1000
+        command = "WAIT"
+        for w in my_wariors:
+            for e in en_wariors + en_leaders:
+                dist = ps.dist(w.pos_x, w.pos_y, e.pos_x, e.pos_y)
+                are_there_walls = ps.walls_collision(
+                    w.pos_x, w.pos_y, e.pos_x, e.pos_y, map
+                )
+                if (dist < 7) and (dist <= closest_dist) and (not are_there_walls):
+                    closest_enemy = e
+                    closest_waroir = w
+                    closest_dist = dist
+                    command = f"{closest_waroir.id} SHOOT {closest_enemy.id}"
+        return command
 
     def fight_shuffle_closer_to_leader(self, units: list[Unit], map: list[list[Cell]]):
         ps = PathSearcher()

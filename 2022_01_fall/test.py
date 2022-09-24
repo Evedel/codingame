@@ -733,39 +733,6 @@ class TestPathSearcher(unittest.TestCase):
         command, _, _ = self.__run_turn(init + turn)
         self.assertEqual(command, "8 MOVE 10 6")
 
-    def test_full_case_stuck_02(self):
-        init = [
-            "1",
-            "13 7",
-            "xx.........xx",
-            ".x.........x.",
-            ".............",
-            ".............",
-            "...x.....x...",
-            "..x.......x..",
-            ".x.........x.",
-        ]
-        turn = [
-            "14",
-            "0 1 10 1 2 0",
-            "1 1 10 11 2 1",
-            "2 0 10 9 1 2",
-            "3 0 10 2 2 0",
-            "4 0 10 3 6 2",
-            "5 0 10 2 1 2",
-            "6 0 10 2 3 0",
-            "7 0 10 5 1 2",
-            "8 0 10 8 3 2",
-            "9 0 10 10 2 1",
-            "10 0 10 9 6 2",
-            "11 0 10 6 1 2",
-            "12 0 10 10 3 1",
-            "13 0 10 10 1 2",
-        ]
-        InputHandler.__DEBUG__ = False
-        command, _, _ = self.__run_turn(init + turn)
-        self.assertEqual(command, "9 MOVE 9 2")
-
     def test_full_case_prioritise_convenient_convert(self):
         init = [
             "1",
@@ -832,7 +799,7 @@ class TestPathSearcher(unittest.TestCase):
 
         InputHandler.__DEBUG__ = False
         command, _, _ = self.__run_turn(init + turn)
-        self.assertEqual(command, "12 MOVE 6 1")
+        self.assertEqual(command, "1 MOVE 8 0")
 
     def test_full_case_do_not_shoot_neutrals(self):
         init = [
@@ -865,7 +832,7 @@ class TestPathSearcher(unittest.TestCase):
         ]
         InputHandler.__DEBUG__ = False
         command, _, _ = self.__run_turn(init + turn)
-        self.assertEqual(command, "4 MOVE 10 5")
+        self.assertEqual(command, "0 MOVE 0 2")
 
 
 # TODO:
