@@ -84,6 +84,41 @@ class PathSearcher:
     def dist(x1, y1, x2, y2):
         return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
+    @staticmethod
+    def walls_collision(x0: int, y0: int, x1: int, y1: int, map: list[list[Cell]]):
+        # always draw a line from smallest y
+        if y0 < y1:
+            p0 = (x0, y0)
+            p1 = (x1, y1)
+        else:
+            p1 = (x0, y0)
+            p0 = (x1, y1)
+
+        # chose where there are more steps
+        # if dx > dy => more x cells, use y=f(x) from p0 to p1
+        # if dy > dx => more y cells, use x=f(y) from p0 to p1
+        line = lambda x: x
+        is_wall = lambda x: x
+        if abs(p1[0] - p0[0]) > abs(p1[1] - p0[1]):
+            i_start = p0[0]
+            i_end = p1[0]
+            i_step = 1 if i_start < i_end else -1
+            line = lambda x: (p1[1] - p0[1]) / (p1[0] - p0[0]) * (x - p0[0]) + p0[1]
+            is_wall = lambda i: map[round(line(i))][i].entity == EntityType.Wall
+        else:
+            i_start = p0[1]
+            i_end = p1[1]
+            i_step = 1 if i_start < i_end else -1
+            line = lambda y: (p1[0] - p0[0]) / (p1[1] - p0[1]) * (y - p0[1]) + p0[0]
+            is_wall = lambda i: map[i][round(line(i))].entity == EntityType.Wall
+
+        # check if there is a wall on the line
+        for i in range(i_start, i_end, i_step):
+            if is_wall(i):
+                return True
+
+        return False
+
     def path_search(
         self,
         from_x: int,
@@ -251,16 +286,12 @@ class GameLogic:
                 closest_waroir = w
                 closest_path = path
 
+        p0 = (closest_waroir.pos_x, closest_waroir.pos_y)
+        p1 = (closest_enemy.pos_x, closest_enemy.pos_y)
+        dist = ps.dist(p0[0], p0[1], p1[0], p1[1])
+        are_there_walls = ps.walls_collision(p0[0], p0[1], p1[0], p1[1], map)
         if closest_path is not None:
-            if (
-                ps.dist(
-                    closest_waroir.pos_x,
-                    closest_waroir.pos_y,
-                    closest_enemy.pos_x,
-                    closest_enemy.pos_y,
-                )
-                < 6
-            ):
+            if (dist < 6) and not are_there_walls:
                 command = f"{closest_waroir.id} SHOOT {closest_enemy.id}"
             else:
                 command = f"{closest_waroir.id} MOVE {closest_path.path[1][0]} {closest_path.path[1][1]}"
@@ -277,7 +308,7 @@ class InputHandler:
     @staticmethod
     def __input_debugger__():
         res = input()
-        InputHandler.dp(res)
+        InputHandler.dp(f'"{res}",')
         return res
 
     @staticmethod

@@ -86,7 +86,7 @@ class TestPathSearcher(unittest.TestCase):
         map, units = ih.read_turn_input(map, units, map)
         gl = GameLogic()
         command = gl.make_turn(units, map)
-        return command
+        return command, map, units
 
     def test_get_possible_moves_center(self):
         ps = PathSearcher()
@@ -455,7 +455,7 @@ class TestPathSearcher(unittest.TestCase):
             "13 0 10 9 1 2",
         ]
 
-        command = self.__run_turn(init + turn)
+        command, _, _ = self.__run_turn(init + turn)
 
         self.assertEqual(command, "0 MOVE 0 2")
 
@@ -522,8 +522,48 @@ class TestPathSearcher(unittest.TestCase):
             "13 0 10 9 1 2",
         ]
 
-        command = self.__run_turn(init + turn)
+        command, _, _ = self.__run_turn(init + turn)
         self.assertEqual(command, "5 SHOOT 11")
+
+    def test_full_case_04(self):
+        #  check won't shoot in walls
+        init = [
+            "0",
+            "13 7",
+            "x...........x",
+            "x....x.x....x",
+            "...x.x.x.x...",
+            ".xx.......xx.",
+            ".............",
+            ".............",
+            "...x.x.x.x...",
+        ]
+        turn = [
+            "12",
+            "0 1 10 0 5 0",
+            "1 1 10 9 3 1",
+            "2 0 10 4 3 2",
+            "3 0 10 5 0 2",
+            "4 0 10 1 2 0",
+            "6 0 1 4 4 0",
+            "7 0 10 2 1 2",
+            "8 0 1 8 2 1",
+            "9 0 10 8 0 2",
+            "10 0 10 9 1 2",
+            "12 0 6 10 4 1",
+            "13 0 10 10 2 2",
+        ]
+
+        command, map, _ = self.__run_turn(init + turn)
+        ps = PathSearcher()
+
+        are_there_walls_1 = ps.walls_collision(4, 4, 8, 2, map)
+        self.assertTrue(are_there_walls_1)
+
+        are_there_walls_2 = ps.walls_collision(5, 5, 8, 2, map)
+        self.assertFalse(are_there_walls_2)
+
+        self.assertNotEqual(command, "6 SHOOT 8")
 
 
 if __name__ == "__main__":
