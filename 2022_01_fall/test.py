@@ -88,6 +88,14 @@ class TestPathSearcher(unittest.TestCase):
         command = gl.make_turn(units, map)
         return command, map, units
 
+    def __read_map_from_input(self, input_lines: list[str]):
+        input = MagicMock()
+        input.side_effect = input_lines
+        map: list[list[Cell]] = []
+        ih = InputHandler(input=input)
+        map = ih.read_initial_input(map)
+        return map
+
     def test_get_possible_moves_center(self):
         ps = PathSearcher()
         map = self.__get_empty_map()
@@ -597,10 +605,70 @@ class TestPathSearcher(unittest.TestCase):
         command, map, _ = self.__run_turn(init + turn)
         self.assertEqual(command[0], "1")
 
+    def test_full_case_when_moving_to_en_leader_but_there_are_more_en_warriors(self):
+        init = [
+            "1",
+            "13 7",
+            ".............",
+            ".....x.x.....",
+            ".............",
+            "..x..x.x..x..",
+            ".............",
+            ".x.xx...xx.x.",
+            ".............",
+        ]
+        turn = [
+            "14",
+            "0 1 10 3 0 0",
+            "1 1 10 11 3 1",
+            "2 0 10 1 1 0",
+            "3 0 10 4 1 2",
+            "4 0 10 2 4 2",
+            "5 0 10 1 2 0",
+            "6 0 10 5 6 2",
+            "7 0 10 3 2 2",
+            "8 0 10 8 1 1",
+            "9 0 10 8 0 2",
+            "10 0 10 11 4 1",
+            "11 0 10 11 2 2",
+            "12 0 10 6 5 2",
+            "13 0 10 9 3 2",
+        ]
+        command, _, _ = self.__run_turn(init + turn)
+        self.assertEqual(command, "8 MOVE 8 2")
+
+    def test_do_not_shoot_walls_when_there_is_exact_midpoint_x_5(self):
+        init = [
+            "1",
+            "13 7",
+            ".............",
+            "....Tx.x.....",
+            "......M......",
+            "..x..x.x..x..",
+            ".............",
+            ".x.xx...xx.x.",
+            ".............",
+        ]
+        init = [
+            "1",
+            "13 7",
+            ".............",
+            ".....x.x.....",
+            ".............",
+            "..x..x.x..x..",
+            ".............",
+            ".x.xx...xx.x.",
+            ".............",
+        ]
+        map = self.__read_map_from_input(init)
+        ps = PathSearcher()
+        are_there_walls = ps.walls_collision(6, 2, 4, 1, map)
+        self.assertTrue(are_there_walls)
+
 
 # TODO:
 # when my leader is at risk
 # when no warior to kill
-
+# when shooting leader but there are more enemies
 if __name__ == "__main__":
     unittest.main()

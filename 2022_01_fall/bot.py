@@ -95,22 +95,50 @@ class PathSearcher:
             p0 = (x1, y1)
 
         # chose where there are more steps
-        # if dx > dy => more x cells, use y=f(x) from p0 to p1
-        # if dy > dx => more y cells, use x=f(y) from p0 to p1
         line = lambda x: x
         is_wall = lambda x: x
         if abs(p1[0] - p0[0]) > abs(p1[1] - p0[1]):
+            # if dx > dy => more x cells, use y=f(x) from p0 to p1
             i_start = p0[0]
             i_end = p1[0]
             i_step = 1 if i_start < i_end else -1
             line = lambda x: (p1[1] - p0[1]) / (p1[0] - p0[0]) * (x - p0[0]) + p0[1]
-            is_wall = lambda i: map[round(line(i))][i].entity == EntityType.Wall
+
+            def local_is_wall(i: int):
+                xi = i
+                yi = line(xi)
+                if yi % 1 == 0.5:
+                    yi0 = math.floor(yi)
+                    yi1 = math.ceil(yi)
+                    return (
+                        map[yi0][xi].entity == EntityType.Wall
+                        or map[yi1][xi].entity == EntityType.Wall
+                    )
+                else:
+                    return map[round(yi)][xi].entity == EntityType.Wall
+
+            is_wall = local_is_wall
         else:
+            # if dy > dx => more y cells, use x=f(y) from p0 to p1
             i_start = p0[1]
             i_end = p1[1]
             i_step = 1 if i_start < i_end else -1
             line = lambda y: (p1[0] - p0[0]) / (p1[1] - p0[1]) * (y - p0[1]) + p0[0]
-            is_wall = lambda i: map[i][round(line(i))].entity == EntityType.Wall
+
+            def local_is_wall(i: int):
+                yi = i
+                xi = line(yi)
+                if xi % 1 == 0.5:
+                    xi0 = math.floor(xi)
+                    xi1 = math.ceil(xi)
+                    return (
+                        map[yi][xi0].entity == EntityType.Wall
+                        or map[yi][xi1].entity == EntityType.Wall
+                    )
+                else:
+                    return map[yi][round(xi)].entity == EntityType.Wall
+
+            is_wall = local_is_wall
 
         # check if there is a wall on the line
         for i in range(i_start, i_end, i_step):
@@ -281,7 +309,7 @@ class GameLogic:
                 en_leader.pos_x,
                 en_leader.pos_y,
                 map,
-                EntityType.EnWarior,
+                EntityType.EnLeader,
             )
             if path is not None and path.cost < closest_dist:
                 closest_dist = path.cost
