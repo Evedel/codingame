@@ -565,6 +565,42 @@ class TestPathSearcher(unittest.TestCase):
 
         self.assertNotEqual(command, "6 SHOOT 8")
 
+    def test_full_when_my_id_is_1(self):
+        init = [
+            "1",
+            "13 7",
+            ".............",
+            ".....x.x.....",
+            ".............",
+            "..x..x.x..x..",
+            ".............",
+            ".x.xx...xx.x.",
+            ".............",
+        ]
+        turn = [
+            "14",
+            "0 1 10 0 2 0",
+            "1 1 10 12 3 1",
+            "2 0 10 1 1 2",
+            "3 0 10 4 1 2",
+            "4 0 10 2 4 2",
+            "5 0 10 1 2 2",
+            "6 0 10 5 5 2",
+            "7 0 10 3 1 2",
+            "8 0 10 11 1 2",
+            "9 0 10 8 1 2",
+            "10 0 10 10 4 2",
+            "11 0 10 10 2 2",
+            "12 0 10 7 5 2",
+            "13 0 10 9 1 2",
+        ]
+        command, map, _ = self.__run_turn(init + turn)
+        self.assertEqual(command[0], "1")
+
+
+# TODO:
+# when my leader is at risk
+# when no warior to kill
 
 if __name__ == "__main__":
     unittest.main()

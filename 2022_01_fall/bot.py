@@ -192,6 +192,9 @@ class PathSearcher:
 
 
 class GameLogic:
+    __MY_ID__: int
+    __EN_ID__: int
+
     def find_units_by_type(self, units: list[Unit], type: EntityType):
         return [unit for unit in units if unit.type == type]
 
@@ -341,6 +344,11 @@ class InputHandler:
 
     def read_initial_input(self, map):
         my_id = int(self.input())
+        en_id = 1 - my_id
+
+        GameLogic.__MY_ID__ = my_id
+        GameLogic.__EN_ID__ = en_id
+
         width, height = [int(i) for i in self.input().split()]
         map = []
         for i in range(height):
@@ -364,13 +372,13 @@ class InputHandler:
         for i in range(num_of_units):
             unit_id, unit_type, hp, x, y, owner = [int(j) for j in self.input().split()]
             entity_type = None
-            if (unit_type == 0) and (owner == 1):
+            if (unit_type == 0) and (owner == GameLogic.__EN_ID__):
                 entity_type = EntityType.EnWarior
-            if (unit_type == 1) and (owner == 1):
+            if (unit_type == 1) and (owner == GameLogic.__EN_ID__):
                 entity_type = EntityType.EnLeader
-            if (unit_type == 0) and (owner == 0):
+            if (unit_type == 0) and (owner == GameLogic.__MY_ID__):
                 entity_type = EntityType.MyWarior
-            if (unit_type == 1) and (owner == 0):
+            if (unit_type == 1) and (owner == GameLogic.__MY_ID__):
                 entity_type = EntityType.MyLeader
             if owner == 2:
                 entity_type = EntityType.Neutral
