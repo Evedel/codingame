@@ -765,6 +765,38 @@ class TestPathSearcher(unittest.TestCase):
         command, _, _ = self.__run_turn(init + turn)
         self.assertEqual(command, "12 MOVE 9 3")
 
+    def test_full_case_prioritise_convenient_convert(self):
+        init = [
+            "1",
+            "13 7",
+            ".............",
+            ".............",
+            "....x...x....",
+            ".............",
+            ".............",
+            ".............",
+            ".x.........x.",
+        ]
+        turn = [
+            "14",
+            "0 1 10 0 3 0",
+            "1 1 10 10 2 1",
+            "2 0 10 2 0 2",
+            "3 0 10 1 2 2",
+            "4 0 10 1 3 2",
+            "5 0 10 2 6 2",
+            "6 0 10 3 1 2",
+            "7 0 10 3 2 2",
+            "8 0 10 9 0 2",
+            "9 0 10 11 1 1",
+            "10 0 10 10 3 1",
+            "11 0 10 8 6 2",
+            "12 0 10 9 1 2",
+            "13 0 10 9 2 2",
+        ]
+        command, _, _ = self.__run_turn(init + turn)
+        self.assertEqual(command, "1 CONVERT 13")
+
 
 # TODO:
 # when my leader is at risk
