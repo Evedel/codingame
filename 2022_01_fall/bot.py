@@ -81,7 +81,7 @@ class PathSearcher:
         return moves
 
     @staticmethod
-    def dist(x1, y1, x2, y2):
+    def dist(x1: int, y1: int, x2: int, y2: int) -> float:
         return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
     @staticmethod
@@ -275,11 +275,18 @@ class GameLogic:
         command = "WAIT"
 
         my_wariors = self.find_units_by_type(units, EntityType.MyWarior)
+        my_leader = self.find_units_by_type(units, EntityType.MyLeader)[0]
+        neutrals = self.find_units_by_type(units, EntityType.Neutral)
 
-        if len(my_wariors) < 2:
-            command = self.convert_nuetral(units, map)
-        else:
-            command = self.fight_general(units, map)
+        command = self.check_convenient_convert(my_leader, neutrals)
+
+        InputHandler.ddp(command)
+
+        if command == "WAIT":
+            if len(my_wariors) < 2:
+                command = self.convert_nuetral(units, map)
+            else:
+                command = self.fight_general(units, map)
 
         # command is WAIT  => no enemy units reachable
         if command == "WAIT":
@@ -335,14 +342,27 @@ class GameLogic:
             p0 = (closest_waroir.pos_x, closest_waroir.pos_y)
             p1 = (closest_enemy.pos_x, closest_enemy.pos_y)
             dist = ps.dist(p0[0], p0[1], p1[0], p1[1])
-            if dist < 6:
-                are_there_walls = ps.walls_collision(p0[0], p0[1], p1[0], p1[1], map)
-                if not are_there_walls:
-                    command = f"{closest_waroir.id} SHOOT {closest_enemy.id}"
-                else:
-                    command = f"{closest_waroir.id} MOVE {closest_path.path[1][0]} {closest_path.path[1][1]}"
+            are_there_walls = ps.walls_collision(p0[0], p0[1], p1[0], p1[1], map)
+            if (dist < 6) and (not are_there_walls):
+                command = f"{closest_waroir.id} SHOOT {closest_enemy.id}"
+            else:
+                command = f"{closest_waroir.id} MOVE {closest_path.path[1][0]} {closest_path.path[1][1]}"
 
         return command
+
+    def check_convenient_convert(self, my_leader: list[Unit], neutral: list[Unit]):
+        ps = PathSearcher()
+        for n in neutral:
+            InputHandler.ddp(
+                "check_convenient_convert",
+                ps.dist(my_leader.pos_x, my_leader.pos_y, n.pos_x, n.pos_y),
+            )
+            if ps.dist(my_leader.pos_x, my_leader.pos_y, n.pos_x, n.pos_y) == 1.0:
+                InputHandler.ddp(
+                    f"check_convenient_convert return {n.id}",
+                )
+                return f"{my_leader.id} CONVERT {n.id}"
+        return "WAIT"
 
     def fight_shuffle_closer_to_leader(self, units: list[Unit], map: list[list[Cell]]):
         ps = PathSearcher()

@@ -635,7 +635,7 @@ class TestPathSearcher(unittest.TestCase):
             "13 0 10 9 3 2",
         ]
         command, _, _ = self.__run_turn(init + turn)
-        self.assertEqual(command, "8 MOVE 8 2")
+        self.assertEqual(command, "1 CONVERT 11")
 
     def test_do_not_shoot_walls_when_there_is_exact_midpoint_x_5(self):
         init = [
@@ -762,8 +762,9 @@ class TestPathSearcher(unittest.TestCase):
             "12 0 10 10 3 1",
             "13 0 10 10 1 2",
         ]
+        InputHandler.__DEBUG__ = False
         command, _, _ = self.__run_turn(init + turn)
-        self.assertEqual(command, "12 MOVE 9 3")
+        self.assertEqual(command, "9 MOVE 9 2")
 
     def test_full_case_prioritise_convenient_convert(self):
         init = [
@@ -794,8 +795,44 @@ class TestPathSearcher(unittest.TestCase):
             "12 0 10 9 1 2",
             "13 0 10 9 2 2",
         ]
+
+        InputHandler.__DEBUG__ = False
         command, _, _ = self.__run_turn(init + turn)
         self.assertEqual(command, "1 CONVERT 13")
+
+    def test_fix_not_attacking_untill_6_tiles_close(self):
+        init = [
+            "1",
+            "13 7",
+            ".............",
+            ".............",
+            "....x...x....",
+            ".............",
+            ".............",
+            ".............",
+            ".x.........x.",
+        ]
+        turn = [
+            "14",
+            "0 1 10 0 3 0",
+            "1 1 10 8 1 1",
+            "2 0 10 1 0 2",
+            "3 0 10 1 2 2",
+            "4 0 10 1 4 2",
+            "5 0 10 2 6 2",
+            "6 0 10 4 1 2",
+            "7 0 10 3 3 2",
+            "8 0 10 7 0 2",
+            "9 0 10 11 1 1",
+            "10 0 10 10 3 1",
+            "11 0 10 8 5 2",
+            "12 0 10 7 1 1",
+            "13 0 10 9 2 1",
+        ]
+
+        InputHandler.__DEBUG__ = False
+        command, _, _ = self.__run_turn(init + turn)
+        self.assertEqual(command, "12 MOVE 6 1")
 
 
 # TODO:
