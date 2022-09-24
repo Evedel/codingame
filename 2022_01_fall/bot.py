@@ -113,9 +113,14 @@ class PathSearcher:
                     return (
                         map[yi0][xi].entity == EntityType.Wall
                         or map[yi1][xi].entity == EntityType.Wall
+                        or map[yi0][xi].entity == EntityType.Neutral
+                        or map[yi1][xi].entity == EntityType.Neutral
                     )
                 else:
-                    return map[round(yi)][xi].entity == EntityType.Wall
+                    return (
+                        map[round(yi)][xi].entity == EntityType.Wall
+                        or map[round(yi)][xi].entity == EntityType.Neutral
+                    )
 
             is_wall = local_is_wall
         else:
@@ -134,9 +139,14 @@ class PathSearcher:
                     return (
                         map[yi][xi0].entity == EntityType.Wall
                         or map[yi][xi1].entity == EntityType.Wall
+                        or map[yi][xi0].entity == EntityType.Neutral
+                        or map[yi][xi1].entity == EntityType.Neutral
                     )
                 else:
-                    return map[yi][round(xi)].entity == EntityType.Wall
+                    return (
+                        map[yi][round(xi)].entity == EntityType.Wall
+                        or map[yi][round(xi)].entity == EntityType.Neutral
+                    )
 
             is_wall = local_is_wall
 
@@ -331,7 +341,7 @@ class GameLogic:
                 map,
                 EntityType.EnLeader,
             )
-            if path is not None and path.cost < closest_dist:
+            if path is not None and path.cost <= closest_dist:
                 closest_dist = path.cost
                 closest_enemy = en_leader
                 closest_waroir = w

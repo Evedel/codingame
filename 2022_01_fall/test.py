@@ -834,10 +834,45 @@ class TestPathSearcher(unittest.TestCase):
         command, _, _ = self.__run_turn(init + turn)
         self.assertEqual(command, "12 MOVE 6 1")
 
+    def test_full_case_do_not_shoot_neutrals(self):
+        init = [
+            "0",
+            "13 7",
+            "....x...x....",
+            "x...........x",
+            "..xx.....xx..",
+            ".x.........x.",
+            "....x...x....",
+            ".....x.x.....",
+            "...x.....x...",
+        ]
+        turn = [
+            "14",
+            "0 1 10 1 2 0",
+            "1 1 10 12 3 1",
+            "2 0 10 1 1 0",
+            "3 0 10 4 6 2",
+            "4 0 10 9 5 0",
+            "5 0 10 3 5 0",
+            "6 0 10 3 1 2",
+            "7 0 10 0 0 2",
+            "8 0 10 11 1 2",
+            "9 0 10 6 6 2",
+            "10 0 5 10 4 2",
+            "11 0 10 8 6 2",
+            "12 0 10 9 0 2",
+            "13 0 10 9 1 2",
+        ]
+        InputHandler.__DEBUG__ = False
+        command, _, _ = self.__run_turn(init + turn)
+        self.assertEqual(command, "4 MOVE 10 5")
+
 
 # TODO:
 # when my leader is at risk
 # when no warior to kill
 # when shooting leader but there are more enemies
+# do not shoot neutrals
+
 if __name__ == "__main__":
     unittest.main()
