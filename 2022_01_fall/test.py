@@ -834,12 +834,42 @@ class TestPathSearcher(unittest.TestCase):
         command, _, _ = self.__run_turn(init + turn)
         self.assertEqual(command, "0 MOVE 0 2")
 
+    def test_no_crashes_when_both_leaders_are_dead(self):
+        init = [
+            "1",
+            "13 7",
+            ".............",
+            "x.x.......x.x",
+            ".............",
+            "...xx...xx...",
+            "....x...x....",
+            "xx.........xx",
+            ".............",
+        ]
+        turn = [
+            "10",
+            "4 0 10 1 4 0",
+            "5 0 10 1 6 2",
+            "6 0 10 3 6 2",
+            "7 0 10 2 3 0",
+            "8 0 10 8 1 2",
+            "9 0 10 11 2 1",
+            "10 0 10 10 3 1",
+            "11 0 10 10 6 1",
+            "12 0 6 7 3 1",
+            "13 0 10 8 0 2",
+        ]
+        InputHandler.__DEBUG__ = False
+        command, _, _ = self.__run_turn(init + turn)
+        self.assertEqual(command, "WAIT")
+
 
 # TODO:
 # when my leader is at risk
 # when no warior to kill
 # when shooting leader but there are more enemies
 # do not shoot neutrals
+# when my leader is dead
 
 if __name__ == "__main__":
     unittest.main()

@@ -251,10 +251,16 @@ class GameLogic:
     def convert_nuetral(self, units: list[Unit], map: list[list[Cell]]):
         ps = PathSearcher()
 
-        my_leader = self.find_units_by_type(units, EntityType.MyLeader)[0]
+        my_leaders = self.find_units_by_type(units, EntityType.MyLeader)
         neutrals = self.find_units_by_type(units, EntityType.Neutral)
+        my_leader = None
 
         command = "WAIT"
+        if len(my_leaders) == 0:
+            return command
+        else:
+            my_leader = my_leaders[0]
+
         best_path = None
         best_cost = 1000
         best_neutral = None
@@ -285,10 +291,11 @@ class GameLogic:
         command = "WAIT"
 
         my_wariors = self.find_units_by_type(units, EntityType.MyWarior)
-        my_leader = self.find_units_by_type(units, EntityType.MyLeader)[0]
+        my_leaders = self.find_units_by_type(units, EntityType.MyLeader)
         neutrals = self.find_units_by_type(units, EntityType.Neutral)
 
-        command = self.check_convenient_convert(my_leader, neutrals)
+        if len(my_leaders) == 1:
+            command = self.check_convenient_convert(my_leaders[0], neutrals)
 
         command = self.check_convenient_shoot(units, map)
 
@@ -395,7 +402,14 @@ class GameLogic:
     def fight_shuffle_closer_to_leader(self, units: list[Unit], map: list[list[Cell]]):
         ps = PathSearcher()
         my_wariors = self.find_units_by_type(units, EntityType.MyWarior)
-        en_leader = self.find_units_by_type(units, EntityType.EnLeader)[0]
+        en_leaders = self.find_units_by_type(units, EntityType.EnLeader)
+        en_leader = None
+
+        command = "WAIT"
+        if len(en_leaders) == 0:
+            return command
+        else:
+            en_leader = en_leaders[0]
 
         best_warior = None
         best_dist = 0
@@ -424,7 +438,6 @@ class GameLogic:
                 best_dist = dist
                 best_move = m
 
-        command = "WAIT"
         if best_warior is not None:
             command = f"{best_warior.id} MOVE {best_move[0]} {best_move[1]}"
 
