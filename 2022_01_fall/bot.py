@@ -3,10 +3,9 @@ import sys
 import math
 import copy
 from enum import Enum
-from time import sleep
 
 
-class UnitType(Enum):
+class EntityType(Enum):
     Wall = -2
     Empty = -1
     MyLeader = 0
@@ -18,29 +17,31 @@ class UnitType(Enum):
 
 @dataclass
 class Cell:
-    entity: UnitType
+    entity: EntityType
 
     def to_map(self):
-        if self.entity == UnitType.Wall:
+        if self.entity == EntityType.Wall:
             return "x"
-        elif self.entity == UnitType.Empty:
+        elif self.entity == EntityType.Empty:
             return "."
-        elif self.entity == UnitType.MyLeader:
+        elif self.entity == EntityType.MyLeader:
             return "M"
-        elif self.entity == UnitType.MyWarior:
+        elif self.entity == EntityType.MyWarior:
             return "i"
-        elif self.entity == UnitType.EnLeader:
+        elif self.entity == EntityType.EnLeader:
             return "m"
-        elif self.entity == UnitType.EnWarior:
+        elif self.entity == EntityType.EnWarior:
             return "l"
-        elif self.entity == UnitType.Neutral:
+        elif self.entity == EntityType.Neutral:
             return "o"
         else:
             return "?"
+
+
 @dataclass
 class Unit:
     id: int
-    type: UnitType = None
+    type: EntityType = None
     pos_x: int = None
     pos_y: int = None
 
@@ -54,17 +55,17 @@ class PathSearcher:
 
     def get_possible_moves(self, x: int, y: int, map: list[list[Cell]]):
         moves = []
-        if x > 0 and map[y][x - 1].entity == UnitType.Empty:
+        if x > 0 and map[y][x - 1].entity == EntityType.Empty:
             moves.append((x - 1, y))
-        if x < 12 and map[y][x + 1].entity == UnitType.Empty:
+        if x < 12 and map[y][x + 1].entity == EntityType.Empty:
             moves.append((x + 1, y))
-        if y > 0 and map[y - 1][x].entity == UnitType.Empty:
+        if y > 0 and map[y - 1][x].entity == EntityType.Empty:
             moves.append((x, y - 1))
-        if y < 6 and map[y + 1][x].entity == UnitType.Empty:
+        if y < 6 and map[y + 1][x].entity == EntityType.Empty:
             moves.append((x, y + 1))
         return moves
 
-    def get_occupied_by(self, x: int, y: int, unit_type: UnitType, map: list[list[Cell]]):
+    def get_occupied_by(self, x: int, y: int, unit_type: EntityType, map: list[list[Cell]]):
         moves = []
         if x > 0 and map[y][x - 1].entity == unit_type:
             moves.append((x - 1, y))
@@ -80,7 +81,7 @@ class PathSearcher:
     def dist(x1, y1, x2, y2):
         return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
-    def path_search(self, from_x: int, from_y: int, to_x: int, to_y: int, map: list[list[Cell]], unit_type: UnitType = UnitType.Empty):
+    def path_search(self, from_x: int, from_y: int, to_x: int, to_y: int, map: list[list[Cell]], unit_type: EntityType = EntityType.Empty):
         path_queue = [
             self.Path(
                 path=[(from_x, from_y)],
@@ -88,14 +89,19 @@ class PathSearcher:
                 dist= PathSearcher.dist(from_x, from_y, to_x, to_y)
             )
         ]
-
+        
+        InputHandler.ddp("Searching path from", from_x, from_y, "to", to_x, to_y)
+        iter = 0
         while True:
             # print(path_queue[0])
+            iter += 1
+            if iter > 100:
+                return None
             if len(path_queue) == 0:
                 return None
             current_path = path_queue.pop(0)
-            moves = self.get_occupied_by(current_path.path[-1][0], current_path.path[-1][1], UnitType.Empty, map)
-            if unit_type != UnitType.Empty:
+            moves = self.get_occupied_by(current_path.path[-1][0], current_path.path[-1][1], EntityType.Empty, map)
+            if unit_type != EntityType.Empty:
                 units = self.get_occupied_by(current_path.path[-1][0], current_path.path[-1][1], unit_type, map)
                 for unit in units:
                     if unit[0] == to_x and unit[1] == to_y:
@@ -128,14 +134,14 @@ class PathSearcher:
             # sleep(2)
 
 class GameLogic:
-    def find_units_by_type(self, units: list[Unit], type: UnitType):
+    def find_units_by_type(self, units: list[Unit], type: EntityType):
         return [unit for unit in units if unit.type == type]
 
     def find_nearest_neutral(self, leader, units: list[Unit]):
         nearest_neutral = None
         nearest_dist = 1000
         for u in units:
-            if u.type == UnitType.Neutral:
+            if u.type == EntityType.Neutral:
                 dist = PathSearcher.dist(leader.pos_x, leader.pos_y, u.pos_x, u.pos_y)
                 if dist < nearest_dist:
                     nearest_dist = dist
@@ -150,7 +156,7 @@ class GameLogic:
             leader.pos_x, leader.pos_y,
             neutral.pos_x, neutral.pos_y,
             map,
-            UnitType.Neutral
+            EntityType.Neutral
         )
         # InputHandler.print_path(map, path.path)
         if len(path.path) == 2:
@@ -163,8 +169,8 @@ class GameLogic:
     def make_turn(self, units: list[Unit], map: list[list[Cell]]):
         ps = PathSearcher()
         
-        my_leader = self.find_units_by_type(units, UnitType.MyLeader)[0]
-        neutrals = self.find_units_by_type(units, UnitType.Neutral)
+        my_leader = self.find_units_by_type(units, EntityType.MyLeader)[0]
+        neutrals = self.find_units_by_type(units, EntityType.Neutral)
 
         command = 'WAIT'
         best_path = None
@@ -175,7 +181,7 @@ class GameLogic:
                 my_leader.pos_x, my_leader.pos_y,
                 neutral.pos_x, neutral.pos_y,
                 map,
-                UnitType.Neutral
+                EntityType.Neutral
             )
             if path is not None and path.cost <= best_cost:
                 best_path = path
@@ -190,12 +196,25 @@ class GameLogic:
         return command
 
 class InputHandler:
+    __DEBUG__ = False
+
     def __init__(self, input=input):
         self.input = input
 
     @staticmethod
+    def __input_debugger__():
+        res = input()
+        InputHandler.dp(res)
+        return res
+
+    @staticmethod
     def dp(*args, **kwargs):
         print(*args, file=sys.stderr, **kwargs)
+
+    @staticmethod
+    def ddp(*args, **kwargs):
+        if InputHandler.__DEBUG__:
+            print(*args, file=sys.stderr, **kwargs)
 
     @staticmethod
     def print_map(map: list[list[Cell]]):
@@ -210,7 +229,7 @@ class InputHandler:
         print(file=sys.stderr)
         for y, row in enumerate(map):
             for x, cell in enumerate(row):
-                if ((x, y) in path) and cell.entity == UnitType.Empty:
+                if ((x, y) in path) and cell.entity == EntityType.Empty:
                     print('+', end=' ', file=sys.stderr)
                 else:
                     print(cell.to_map(), end=' ', file=sys.stderr)
@@ -224,11 +243,11 @@ class InputHandler:
             map.append([])
             line = self.input()
             for j, c in enumerate(line):
-                unit_type = UnitType.Empty
+                unit_type = EntityType.Empty
                 if c == '.':
-                    unit_type = UnitType.Empty
+                    unit_type = EntityType.Empty
                 elif c == 'x':
-                    unit_type = UnitType.Wall        
+                    unit_type = EntityType.Wall        
                 map[i].append(Cell(
                     entity=unit_type
                 ))
@@ -242,15 +261,15 @@ class InputHandler:
             unit_id, unit_type, hp, x, y, owner = [int(j) for j in self.input().split()]
             entity_type = None
             if (unit_type == 0) and (owner == 1):
-                entity_type = UnitType.EnWarior
+                entity_type = EntityType.EnWarior
             if (unit_type == 1) and (owner == 1):
-                entity_type = UnitType.EnLeader
+                entity_type = EntityType.EnLeader
             if (unit_type == 0) and (owner == 0):
-                entity_type = UnitType.MyWarior
+                entity_type = EntityType.MyWarior
             if (unit_type == 1) and (owner == 0):
-                entity_type = UnitType.MyLeader
+                entity_type = EntityType.MyLeader
             if (owner == 2):
-                entity_type = UnitType.Neutral
+                entity_type = EntityType.Neutral
 
             map[y][x].entity = entity_type
             units.append(Unit(unit_id, entity_type, x, y))
@@ -270,7 +289,9 @@ def main():
     map:list[list[Cell]] = []
     units: list[Unit] = []
 
-    ih = InputHandler()
+    ih = InputHandler(
+        input=InputHandler.__input_debugger__
+    )
     gl = GameLogic()
 
     map0 = ih.read_initial_input(map0)

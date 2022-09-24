@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from bot import PathSearcher, GameLogic, Unit, UnitType, Cell, InputHandler
+from bot import PathSearcher, GameLogic, Unit, EntityType, Cell, InputHandler
 import copy
 import unittest
 
@@ -11,64 +11,64 @@ class TestPathSearcher(unittest.TestCase):
       map.append([])
       for j in range(0, 13):
         map[i].append(Cell(
-          entity=UnitType.Empty,
+          entity=EntityType.Empty,
         ))
     return map
 
   def __get_map_case_01(self):
     map = self.__get_empty_map()
-    map[1][3].entity = UnitType.Wall
-    map[1][9].entity = UnitType.Wall
-    map[2][0].entity = UnitType.Wall
-    map[2][1].entity = UnitType.Wall
-    map[2][2].entity = UnitType.Wall
-    map[2][10].entity = UnitType.Wall
-    map[2][11].entity = UnitType.Wall
-    map[2][12].entity = UnitType.Wall
-    map[4][4].entity = UnitType.Wall
-    map[4][5].entity = UnitType.Wall
-    map[4][7].entity = UnitType.Wall
-    map[4][8].entity = UnitType.Wall
-    map[5][0].entity = UnitType.Wall
-    map[5][2].entity = UnitType.Wall
-    map[5][10].entity = UnitType.Wall
-    map[5][12].entity = UnitType.Wall
+    map[1][3].entity = EntityType.Wall
+    map[1][9].entity = EntityType.Wall
+    map[2][0].entity = EntityType.Wall
+    map[2][1].entity = EntityType.Wall
+    map[2][2].entity = EntityType.Wall
+    map[2][10].entity = EntityType.Wall
+    map[2][11].entity = EntityType.Wall
+    map[2][12].entity = EntityType.Wall
+    map[4][4].entity = EntityType.Wall
+    map[4][5].entity = EntityType.Wall
+    map[4][7].entity = EntityType.Wall
+    map[4][8].entity = EntityType.Wall
+    map[5][0].entity = EntityType.Wall
+    map[5][2].entity = EntityType.Wall
+    map[5][10].entity = EntityType.Wall
+    map[5][12].entity = EntityType.Wall
     return map
 
   def __add_units_to_map_case_01(self, map):
     res = copy.deepcopy(map)
-    res[3][0].entity = UnitType.MyLeader
-    res[3][12].entity = UnitType.EnLeader
-    res[1][1].entity = UnitType.Neutral
-    res[1][2].entity = UnitType.Neutral
-    res[3][3].entity = UnitType.Neutral
-    res[5][1].entity = UnitType.Neutral
-    res[5][3].entity = UnitType.Neutral
-    res[6][2].entity = UnitType.Neutral
-    res[1][11].entity = UnitType.Neutral
-    res[1][10].entity = UnitType.Neutral
-    res[3][9].entity = UnitType.Neutral
-    res[5][11].entity = UnitType.Neutral
-    res[5][9].entity = UnitType.Neutral
-    res[6][10].entity = UnitType.Neutral
+    res[3][0].entity = EntityType.MyLeader
+    res[3][12].entity = EntityType.EnLeader
+    res[1][1].entity = EntityType.Neutral
+    res[1][2].entity = EntityType.Neutral
+    res[3][3].entity = EntityType.Neutral
+    res[5][1].entity = EntityType.Neutral
+    res[5][3].entity = EntityType.Neutral
+    res[6][2].entity = EntityType.Neutral
+    res[1][11].entity = EntityType.Neutral
+    res[1][10].entity = EntityType.Neutral
+    res[3][9].entity = EntityType.Neutral
+    res[5][11].entity = EntityType.Neutral
+    res[5][9].entity = EntityType.Neutral
+    res[6][10].entity = EntityType.Neutral
     return res
 
   def __get_units_case_01(self):
     units = []
-    units.append(Unit(0, UnitType.MyLeader, 0, 3))
-    units.append(Unit(1, UnitType.EnLeader, 12, 3))
-    units.append(Unit(2, UnitType.Neutral, 1, 1))
-    units.append(Unit(3, UnitType.Neutral, 2, 1))
-    units.append(Unit(4, UnitType.Neutral, 3, 3))
-    units.append(Unit(5, UnitType.Neutral, 1, 5))
-    units.append(Unit(6, UnitType.Neutral, 3, 5))
-    units.append(Unit(7, UnitType.Neutral, 2, 6))
-    units.append(Unit(8, UnitType.Neutral, 11, 1))
-    units.append(Unit(9, UnitType.Neutral, 10, 1))
-    units.append(Unit(10, UnitType.Neutral, 9, 3))
-    units.append(Unit(11, UnitType.Neutral, 11, 5))
-    units.append(Unit(12, UnitType.Neutral, 9, 5))
-    units.append(Unit(13, UnitType.Neutral, 10, 6))
+    units.append(Unit(0, EntityType.MyLeader, 0, 3))
+    units.append(Unit(1, EntityType.EnLeader, 12, 3))
+    units.append(Unit(2, EntityType.Neutral, 1, 1))
+    units.append(Unit(3, EntityType.Neutral, 2, 1))
+    units.append(Unit(4, EntityType.Neutral, 3, 3))
+    units.append(Unit(5, EntityType.Neutral, 1, 5))
+    units.append(Unit(6, EntityType.Neutral, 3, 5))
+    units.append(Unit(7, EntityType.Neutral, 2, 6))
+    units.append(Unit(8, EntityType.Neutral, 11, 1))
+    units.append(Unit(9, EntityType.Neutral, 10, 1))
+    units.append(Unit(10, EntityType.Neutral, 9, 3))
+    units.append(Unit(11, EntityType.Neutral, 11, 5))
+    units.append(Unit(12, EntityType.Neutral, 9, 5))
+    units.append(Unit(13, EntityType.Neutral, 10, 6))
     return units
 
   def test_get_possible_moves_center(self):
@@ -111,8 +111,8 @@ class TestPathSearcher(unittest.TestCase):
   def test_get_possible_moves_bottom_edge_with_obsticles(self):
     ps = PathSearcher()
     map = self.__get_empty_map()
-    map[0][0].entity = UnitType.MyLeader
-    map[2][0].entity = UnitType.EnWarior
+    map[0][0].entity = EntityType.MyLeader
+    map[2][0].entity = EntityType.EnWarior
     moves = ps.get_possible_moves(0, 1, map)
     self.assertEqual(
       moves,
@@ -122,9 +122,9 @@ class TestPathSearcher(unittest.TestCase):
   def test_path_search_09(self):
     ps = PathSearcher()
     map = self.__get_empty_map()
-    map[0][0].entity = UnitType.MyLeader
-    map[2][2].entity = UnitType.Neutral
-    path = ps.path_search(0, 0, 2, 2, map, UnitType.Neutral)
+    map[0][0].entity = EntityType.MyLeader
+    map[2][2].entity = EntityType.Neutral
+    path = ps.path_search(0, 0, 2, 2, map, EntityType.Neutral)
     self.assertEqual(
       path.path,
       [(0, 0), (1, 0), (1, 1), (2, 1), (2, 2)]
@@ -165,7 +165,7 @@ class TestPathSearcher(unittest.TestCase):
     ps = PathSearcher()
     map = self.__get_empty_map()
     for i in range (0,5):
-      map[i][6].entity = UnitType.Wall
+      map[i][6].entity = EntityType.Wall
     path = ps.path_search(0, 0, 12, 6, map)
     self.assertEqual(
       path.path,
@@ -181,13 +181,13 @@ class TestPathSearcher(unittest.TestCase):
     units.extend([
       Unit(
         id=0,
-        type=UnitType.MyLeader,
+        type=EntityType.MyLeader,
         pos_x=0,
         pos_y=0,
       ),
       Unit(
         id=1,
-        type=UnitType.Neutral,
+        type=EntityType.Neutral,
         pos_x=1,
         pos_y=1,
       )
@@ -204,12 +204,12 @@ class TestPathSearcher(unittest.TestCase):
     units = []
     units.extend([
       Unit(
-        type=UnitType.MyLeader,
+        type=EntityType.MyLeader,
         pos_x=0,
         pos_y=0,
       ),
       Unit(
-        type=UnitType.EnWarior,
+        type=EntityType.EnWarior,
         pos_x=1,
         pos_y=1,
       )
@@ -227,7 +227,7 @@ class TestPathSearcher(unittest.TestCase):
     units.append(
       Unit(
         id=0,
-        type=UnitType.MyLeader,
+        type=EntityType.MyLeader,
         pos_x=0,
         pos_y=0,
       ))
@@ -235,7 +235,7 @@ class TestPathSearcher(unittest.TestCase):
       units.append(
         Unit(
           id=i,
-          type=UnitType.Neutral,
+          type=EntityType.Neutral,
           pos_x=i,
           pos_y=i,
         )
@@ -254,21 +254,21 @@ class TestPathSearcher(unittest.TestCase):
     units.append(
       Unit(
         id=0,
-        type=UnitType.MyLeader,
+        type=EntityType.MyLeader,
         pos_x=0,
         pos_y=0,
       ))
-    map[0][0].entity = UnitType.MyLeader
+    map[0][0].entity = EntityType.MyLeader
     for i in range(5, 1, -1):
       units.append(
         Unit(
           id=i,
-          type=UnitType.Neutral,
+          type=EntityType.Neutral,
           pos_x=i,
           pos_y=i,
         )
       )
-      map[i][i].entity = UnitType.Neutral
+      map[i][i].entity = EntityType.Neutral
 
     gl = GameLogic()
     command = gl.convert_nuetral(units[0], units[-1], map)
@@ -283,21 +283,21 @@ class TestPathSearcher(unittest.TestCase):
     units.append(
       Unit(
         id=0,
-        type=UnitType.MyLeader,
+        type=EntityType.MyLeader,
         pos_x=1,
         pos_y=2,
       ))
-    map[1][2].entity = UnitType.MyLeader
+    map[1][2].entity = EntityType.MyLeader
     for i in range(5, 1, -1):
       units.append(
         Unit(
           id=i,
-          type=UnitType.Neutral,
+          type=EntityType.Neutral,
           pos_x=i,
           pos_y=i,
         )
       )
-      map[i][i].entity = UnitType.Neutral
+      map[i][i].entity = EntityType.Neutral
 
     gl = GameLogic()
     command = gl.convert_nuetral(units[0], units[-1], map)
@@ -339,16 +339,16 @@ class TestPathSearcher(unittest.TestCase):
 
   def test_read_turn_input(self):
     res = ['14',
-      '0 1 10 0 3 0',
-      '1 1 10 12 3 1',
-      '2 0 10 1 1 2',
-      '3 0 10 2 1 2',
-      '4 0 10 3 3 2',
-      '5 0 10 1 5 2',
-      '6 0 10 3 5 2',
-      '7 0 10 2 6 2',
-      '8 0 10 11 1 2',
-      '9 0 10 10 1 2',
+       '0 1 10 0 3 0',
+       '1 1 10 12 3 1',
+       '2 0 10 1 1 2',
+       '3 0 10 2 1 2',
+       '4 0 10 3 3 2',
+       '5 0 10 1 5 2',
+       '6 0 10 3 5 2',
+       '7 0 10 2 6 2',
+       '8 0 10 11 1 2',
+       '9 0 10 10 1 2',
       '10 0 10 9 3 2',
       '11 0 10 11 5 2',
       '12 0 10 9 5 2',
@@ -383,7 +383,7 @@ class TestPathSearcher(unittest.TestCase):
         f'{i} {j}'
       )
 
-  def test_test(self):
+  def test_full_case_01_01(self):
     ih = InputHandler()
     map0 = self.__get_map_case_01()
     map0 = self.__add_units_to_map_case_01(map0)
@@ -395,12 +395,12 @@ class TestPathSearcher(unittest.TestCase):
       '0 MOVE 0 4'
     )
 
-  def test_test(self):
+  def test_full_case_01_02(self):
     ih = InputHandler()
     map0 = self.__get_map_case_01()
     map0 = self.__add_units_to_map_case_01(map0)
-    map0[1][4].entity = UnitType.MyLeader
-    map0[0][3].entity = UnitType.Empty
+    map0[1][4].entity = EntityType.MyLeader
+    map0[0][3].entity = EntityType.Empty
     units = self.__get_units_case_01()
     units[0].pos_x = 1
     units[0].pos_y = 4
@@ -410,6 +410,51 @@ class TestPathSearcher(unittest.TestCase):
       command,
       '0 CONVERT 5'
     )
+  
+  def test_full_case_02(self):
+    # when pathes are too long -> code is infinitely slow
+    init = [
+      '0',
+      '13 7',
+      'x...........x',
+      'x....x.x....x',
+      '...x.x.x.x...',
+      '.xx.......xx.',
+      '.............',
+      '.............',
+      '...x.x.x.x...',
+    ]
+    turn = [
+      '14',
+      '0 1 10 0 3 0',
+      '1 1 10 12 3 1',
+      '2 0 10 4 1 2',
+      '3 0 10 4 0 2',
+      '4 0 10 1 2 2',
+      '5 0 10 4 5 2',
+      '6 0 10 2 6 2',
+      '7 0 10 3 1 2',
+      '8 0 10 8 1 2',
+      '9 0 10 8 0 2',
+      '10 0 10 11 2 2',
+      '11 0 10 8 5 2',
+      '12 0 10 10 6 2',
+      '13 0 10 9 1 2',
+    ]
+
+    input = MagicMock()
+    input.side_effect = init + turn
+
+    map: list[list[Cell]] = []
+    units: list[Unit] = []
+
+    ih = InputHandler(input=input)
+
+    map = ih.read_initial_input(map)
+    map, units = ih.read_turn_input(map, units, map)
+    gl = GameLogic()
+    command = gl.make_turn(units, map)
+    print(command)
 
 if __name__ == '__main__':
   unittest.main()
