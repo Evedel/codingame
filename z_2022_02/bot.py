@@ -67,6 +67,8 @@ class Zone:
     def __init__(self):
         self.cells: list[Cell] = []
         self.type: ZoneType = None  # type: ignore
+        self.cell_owners: dict[OwnerType, int]
+        self.units: dict[OwnerType, int]
 
 
 class Map:
@@ -132,45 +134,50 @@ class GameLogic:
 
     def mark_zones(self):
         for zone in self.zones:
-            owned_numbers = {OwnerType.My: 0, OwnerType.En: 0, OwnerType.No: 0}
+            cell_owners = {OwnerType.My: 0, OwnerType.En: 0, OwnerType.No: 0}
+            units = {OwnerType.My: 0, OwnerType.En: 0, OwnerType.No: 0}
             for cell in zone.cells:
-                owned_numbers[cell.Owner] += 1
+                cell_owners[cell.Owner] += 1
+                units[cell.Owner] += cell.Units
 
-            if owned_numbers[OwnerType.No] == len(zone.cells):
+            zone.cell_owners = cell_owners
+            zone.units = units
+
+            if cell_owners[OwnerType.No] == len(zone.cells):
                 zone.type = ZoneType.Unreachable
 
-            if owned_numbers[OwnerType.En] == len(zone.cells):
+            if cell_owners[OwnerType.En] == len(zone.cells):
                 zone.type = ZoneType.CapturedEn
 
-            if owned_numbers[OwnerType.My] == len(zone.cells):
+            if cell_owners[OwnerType.My] == len(zone.cells):
                 zone.type = ZoneType.CapturedMy
 
             if (
                 zone.type == None
-                and (owned_numbers[OwnerType.No] != 0)
-                and (owned_numbers[OwnerType.En] != 0)
-                and (owned_numbers[OwnerType.My] != 0)
+                and (cell_owners[OwnerType.No] != 0)
+                and (cell_owners[OwnerType.En] != 0)
+                and (cell_owners[OwnerType.My] != 0)
             ):
                 zone.type = ZoneType.FightInProgress
 
             if (
                 zone.type == None
-                and (owned_numbers[OwnerType.En] != 0)
-                and (owned_numbers[OwnerType.My] != 0)
+                and (cell_owners[OwnerType.En] != 0)
+                and (cell_owners[OwnerType.My] != 0)
             ):
                 zone.type = ZoneType.FightInProgress
 
             if (
                 zone.type == None
-                and (owned_numbers[OwnerType.No] != 0)
-                and (owned_numbers[OwnerType.En] != 0)
+                and (cell_owners[OwnerType.No] != 0)
+                and (cell_owners[OwnerType.En] != 0)
             ):
                 zone.type = ZoneType.GuaranteedEn
 
             if (
                 zone.type == None
-                and (owned_numbers[OwnerType.No] != 0)
-                and (owned_numbers[OwnerType.My] != 0)
+                and (cell_owners[OwnerType.No] != 0)
+                and (cell_owners[OwnerType.My] != 0)
             ):
                 zone.type = ZoneType.GuaranteedMy
 
@@ -260,16 +267,61 @@ class GameLogic:
 
     def get_spawns(self) -> list[str]:
         spawn_cmds = []
-        xs = list(range(0, self.width - 1))
-        random.shuffle(xs)
-        for x in xs:
-            ys = list(range(0, self.height - 1))
-            random.shuffle(ys)
-            for y in ys:
-                cell = self.map.cell(x, y)
-                if self.my_matter >= 10 and cell.CanSpawn:
-                    self.my_matter -= 10
-                    spawn_cmds.append(f"SPAWN 1 {cell.x} {cell.y}")
+        max_spawns = self.my_matter // 10
+        max_spawns_guaranteed = int(max_spawns * 0.2)
+        max_spawns_fighting = max_spawns - max_spawns_guaranteed
+
+        need_guaranteed_spawns = False
+        for zone in self.zones:
+            if (zone.type == ZoneType.GuaranteedMy) and (zone.units[OwnerType.My] == 0):
+                need_guaranteed_spawns = True
+
+        if need_guaranteed_spawns:
+            max_spawns_guaranteed = min(2, max_spawns)
+            max_spawns_fighting = max_spawns - max_spawns_guaranteed
+
+        emptiest_zone = None
+        emptiest_fraction = 100000.0
+        for zone in self.zones:
+            if zone.type == ZoneType.GuaranteedMy:
+                fraction = zone.units[OwnerType.My] / zone.cell_owners[OwnerType.My]
+                if fraction < emptiest_fraction:
+                    emptiest_fraction = fraction
+                    emptiest_zone = zone
+
+        if emptiest_zone is not None:
+            cells = emptiest_zone.cells[:]
+            random.shuffle(cells)
+            for cell in cells:
+                if cell.CanSpawn:
+                    self.my_matter -= 10 * max_spawns_guaranteed
+                    spawn_cmds.append(
+                        f"SPAWN {max_spawns_guaranteed} {cell.x} {cell.y}"
+                    )
+                    break
+
+        emptiest_zone = None
+        emptiest_fraction = 100000.0
+        for zone in self.zones:
+            if zone.type == ZoneType.FightInProgress:
+                if zone.units[OwnerType.En] == 0:
+                    if emptiest_zone == None:
+                        emptiest_zone = zone
+                    continue
+                fraction = zone.units[OwnerType.My] / zone.units[OwnerType.En]
+                if fraction < emptiest_fraction:
+                    emptiest_fraction = fraction
+                    emptiest_zone = zone
+
+        if emptiest_zone is not None:
+            cells = emptiest_zone.cells[:]
+            random.shuffle(cells)
+            for cell in cells:
+                if cell.CanSpawn:
+                    self.my_matter -= 10 * max_spawns_fighting
+                    spawn_cmds.append(f"SPAWN {max_spawns_fighting} {cell.x} {cell.y}")
+                    break
+
         return spawn_cmds
 
 

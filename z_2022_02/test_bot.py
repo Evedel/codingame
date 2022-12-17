@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import random
 from unittest.mock import MagicMock
 
 from z_2022_02.inputs import Inputs
@@ -8,6 +9,10 @@ import unittest
 
 
 class TestBot(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        random.seed(18081991)
+
     def test_read_initial_input(self):
         inputs = Inputs()
         lines = inputs.I1
@@ -159,10 +164,25 @@ class TestBot(unittest.TestCase):
         builds = gl.get_builds()
         self.assertEqual(["BUILD 3 4"], builds)
 
+    def test_no_useless_spawns(self):
+        inputs = Inputs()
+        lines = inputs.no_useless_spawns
+        gl = self.__get_gl_from_input(lines)
+        gl.detect_zones()
+        spawns = gl.get_spawns()
+        self.assertEqual(
+            ["SPAWN 2 0 3", "SPAWN 8 3 4"],
+            spawns,
+        )
+
 
 # TODO:
-# [ ] do not place recyclers in owned zones
-# [ ] do not place recyclers so that it creates unreachable zones
+# - spawn bots only:
+#   - on border cells
+# - bot movement
+#   - lots rework needed
+# - do not place recyclers so that it creates unreachable zones
 
 if __name__ == "__main__":
+    random.seed(18081991)
     unittest.main()
