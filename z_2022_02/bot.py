@@ -107,10 +107,15 @@ class GameLogic:
     def dist(x1: int, y1: int, x2: int, y2: int) -> float:
         return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
+    def is_walkable(self, cell: Cell) -> bool:
+        if (cell.ScrapAmount > 0) and (not cell.Recycler):
+            return True
+        return False
+
     def detect_zones(self) -> None:
         for cl in self.map.cells:
             for cell in cl:
-                if (cell.ScrapAmount > 0) and (not cell.zone_checked):
+                if self.is_walkable(cell) and (not cell.zone_checked):
                     zone = self.walk_zone(cell)
                     self.zones.append(zone)
                 cell.zone_checked = True
@@ -123,7 +128,7 @@ class GameLogic:
         cells_to_check += self.get_addjusted_cells(cell)
         while len(cells_to_check) > 0:
             cell_to_check = cells_to_check.pop(0)
-            if (cell_to_check.ScrapAmount > 0) and (not cell_to_check.zone_checked):
+            if self.is_walkable(cell_to_check) and (not cell_to_check.zone_checked):
                 zone.cells.append(cell_to_check)
                 cells_to_check += self.get_addjusted_cells(cell_to_check)
             cell_to_check.zone_checked = True
@@ -145,7 +150,7 @@ class GameLogic:
                         target.Owner = OwnerType.My
         return move_cmds
 
-    def get_closest_unoccupied(self, cell_from: Cell) -> Cell | None:
+    def get_closest_unoccupied(self, cell_from: Cell) -> Cell:
         dist = 10000
         cell_to = None
         for cl in self.map.cells:
@@ -155,9 +160,9 @@ class GameLogic:
                     if current_dist < dist:
                         dist = current_dist
                         cell_to = cell
-        return cell_to
+        return cell_to  # type: ignore
 
-    def get_closest_enemy(self, cell_from: Cell) -> Cell | None:
+    def get_closest_enemy(self, cell_from: Cell) -> Cell:
         dist = 10000
         cell_to = None
         for cl in self.map.cells:
@@ -167,7 +172,7 @@ class GameLogic:
                     if current_dist < dist:
                         dist = current_dist
                         cell_to = cell
-        return cell_to
+        return cell_to  # type: ignore
 
     def get_addjusted_cells(self, this_cell: Cell) -> list[Cell]:
         cells: list[Cell] = []

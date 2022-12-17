@@ -123,6 +123,20 @@ class TestBot(unittest.TestCase):
         self.assertEqual(1, len(gl.zones[1].cells))
         self.assertEqual(1, len(gl.zones[2].cells))
 
+    def test_zone_detection_i7(self):
+        # recycler devides zones
+        inputs = Inputs()
+        lines = inputs.zone_i7
+        gl = self.__get_gl_from_input(lines)
+        gl.detect_zones()
+        self.assertEqual(2, len(gl.zones))
+        self.assertEqual(1, len(gl.zones[0].cells))
+        self.assertEqual(1, len(gl.zones[1].cells))
+        self.assertEqual(1, gl.zones[0].cells[0].x)
+        self.assertEqual(0, gl.zones[0].cells[0].y)
+        self.assertEqual(1, gl.zones[1].cells[0].x)
+        self.assertEqual(2, gl.zones[1].cells[0].y)
+
 
 # TODO:
 # [ ] do not place recyclers in owned zones
