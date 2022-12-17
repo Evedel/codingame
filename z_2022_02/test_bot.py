@@ -151,6 +151,14 @@ class TestBot(unittest.TestCase):
         self.assertEqual(ZoneType.GuaranteedMy, gl.zones[5].type)
         self.assertEqual(ZoneType.FightInProgress, gl.zones[6].type)
 
+    def test_no_builds_in_captured_zones(self):
+        inputs = Inputs()
+        lines = inputs.no_builds_in_captured_zones
+        gl = self.__get_gl_from_input(lines)
+        gl.detect_zones()
+        builds = gl.get_builds()
+        self.assertEqual(["BUILD 3 4"], builds)
+
 
 # TODO:
 # [ ] do not place recyclers in owned zones

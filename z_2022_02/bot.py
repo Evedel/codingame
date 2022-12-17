@@ -26,28 +26,17 @@ class ZoneType(Enum):
 
 
 class Cell:
-    ScrapAmount: int
-    Owner: OwnerType
-    Units: int
-    Recycler: bool
-    CanBuild: bool
-    CanSpawn: bool
-    InRangeOfRecycler: bool
-    x: int
-    y: int
-    zone_checked: bool
-
     def __init__(self):
-        self.ScrapAmount = 0
-        self.Owner = OwnerType.No
-        self.Units = 0
-        self.Recycler = False
-        self.CanBuild = False
-        self.CanSpawn = False
-        self.InRangeOfRecycler = False
-        self.x = 0
-        self.y = 0
-        self.zone_checked = False
+        self.ScrapAmount: int = 0
+        self.Owner: OwnerType = OwnerType.No
+        self.Units: int = 0
+        self.Recycler: bool = False
+        self.CanBuild: bool = False
+        self.CanSpawn: bool = False
+        self.InRangeOfRecycler: bool = False
+        self.x: int = 0
+        self.y: int = 0
+        self.zone_checked: bool = False
 
     def to_map(self):
         print_char = self.ScrapAmount
@@ -75,12 +64,9 @@ class Cell:
 
 
 class Zone:
-    cells: list[Cell]
-    type: ZoneType
-
     def __init__(self):
-        self.cells = []
-        self.type = None  # type: ignore
+        self.cells: list[Cell] = []
+        self.type: ZoneType = None  # type: ignore
 
 
 class Map:
@@ -107,6 +93,8 @@ class GameLogic:
         self.en_matter: int = 0
         self.map: Map = Map()
         self.zones: list[Zone] = []
+        self.RecyclerMy = 0
+        self.RecyclerEn = 0
 
     @staticmethod
     def dist(x1: int, y1: int, x2: int, y2: int) -> float:
@@ -118,6 +106,7 @@ class GameLogic:
         return False
 
     def detect_zones(self) -> None:
+        self.zones.clear()
         for cl in self.map.cells:
             for cell in cl:
                 if self.is_walkable(cell) and (not cell.zone_checked):
@@ -241,28 +230,32 @@ class GameLogic:
 
     def get_builds(self) -> list[str]:
         build_cmds = []
-        max_builds_per_turn = 1
-        for cl in self.map.cells:
-            for cell in cl:
-                if max_builds_per_turn > 0 and self.my_matter >= 10 and cell.CanBuild:
-                    should_build = True
-                    adjusted_cells = self.get_addjusted_cells(cell)
-                    for adj_cell in adjusted_cells:
-                        if adj_cell.Recycler:
-                            should_build = False
-                        else:
-                            adjusted_of_adjusted_cells = self.get_addjusted_cells(
-                                adj_cell
-                            )
-                            for adj_adj_cell in adjusted_of_adjusted_cells:
-                                if adj_adj_cell.Recycler:
-                                    should_build = False
-                    if should_build:
-                        cell.CanBuild = False
-                        cell.Recycler = True
-                        self.my_matter -= 10
-                        max_builds_per_turn -= 1
-                        build_cmds.append(f"BUILD {cell.x} {cell.y}")
+        if self.RecyclerMy > self.RecyclerEn:
+            return build_cmds
+        for zone in self.zones:
+            if zone.type == ZoneType.FightInProgress:
+                for cell in zone.cells:
+                    if self.my_matter >= 10 and cell.CanBuild:
+                        should_build = True
+                        adjusted_cells = self.get_addjusted_cells(cell)
+                        for adj_cell in adjusted_cells:
+                            if adj_cell.Recycler:
+                                should_build = False
+                            else:
+                                adjusted_of_adjusted_cells = self.get_addjusted_cells(
+                                    adj_cell
+                                )
+                                for adj_adj_cell in adjusted_of_adjusted_cells:
+                                    if adj_adj_cell.Recycler:
+                                        should_build = False
+                        if should_build:
+                            cell.CanBuild = False
+                            cell.Recycler = True
+                            self.my_matter -= 10
+                            self.RecyclerMy += 1
+                            build_cmds.append(f"BUILD {cell.x} {cell.y}")
+                            if self.RecyclerMy > self.RecyclerEn:
+                                return build_cmds
         return build_cmds
 
     def get_spawns(self) -> list[str]:
@@ -318,6 +311,8 @@ class InputHandler:
         game_logic.my_matter, game_logic.en_matter = [
             int(i) for i in self.input().split()
         ]
+        game_logic.RecyclerMy = 0
+        game_logic.RecyclerEn = 0
         for i in range(game_logic.height):
             for j in range(game_logic.width):
                 (
@@ -339,6 +334,10 @@ class InputHandler:
                 cell.InRangeOfRecycler = True if in_range_of_recycler == 1 else False
                 cell.x = j
                 cell.y = i
+                if cell.Recycler and cell.Owner == OwnerType.My:
+                    game_logic.RecyclerMy += 1
+                if cell.Recycler and cell.Owner == OwnerType.En:
+                    game_logic.RecyclerEn += 1
                 game_logic.map.cells[i][j] = cell
 
         return game_logic
@@ -353,6 +352,7 @@ def main():
     gl = ih.read_initial_input(gl)
     while True:
         gl = ih.read_turn_input(gl)
+        gl.detect_zones()
         moves = gl.get_robot_moves()
         builds = gl.get_builds()
         spawns = gl.get_spawns()
