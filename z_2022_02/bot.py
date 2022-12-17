@@ -68,6 +68,9 @@ class Cell:
 class Zone:
     cells: list[Cell]
 
+    def __init__(self):
+        self.cells = []
+
 
 class Map:
     cells: list[list[Cell]] = []
@@ -108,10 +111,23 @@ class GameLogic:
         for cl in self.map.cells:
             for cell in cl:
                 if (cell.ScrapAmount > 0) and (not cell.zone_checked):
-                    zone = Zone()
-                    zone.cells = [cell]
+                    zone = self.walk_zone(cell)
                     self.zones.append(zone)
                 cell.zone_checked = True
+
+    def walk_zone(self, cell: Cell) -> Zone:
+        cells_to_check: list[Cell] = []
+        zone = Zone()
+        zone.cells.append(cell)
+        cell.zone_checked = True
+        cells_to_check += self.get_addjusted_cells(cell)
+        while len(cells_to_check) > 0:
+            cell_to_check = cells_to_check.pop(0)
+            if (cell_to_check.ScrapAmount > 0) and (not cell_to_check.zone_checked):
+                zone.cells.append(cell_to_check)
+                cells_to_check += self.get_addjusted_cells(cell_to_check)
+            cell_to_check.zone_checked = True
+        return zone
 
     def get_robot_moves(self) -> list[str]:
         move_cmds = []

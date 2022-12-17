@@ -76,10 +76,10 @@ class TestBot(unittest.TestCase):
         gl.detect_zones()
         self.assertEqual(1, len(gl.zones))
         self.assertEqual(3, len(gl.zones[0].cells))
-        self.assertEqual(2, gl.zones[0].cells[0].x)
-        self.assertEqual(0, gl.zones[0].cells[0].y)
-        self.assertEqual(2, gl.zones[0].cells[1].x)
-        self.assertEqual(1, gl.zones[0].cells[1].y)
+        self.assertEqual(0, gl.zones[0].cells[0].x)
+        self.assertEqual(2, gl.zones[0].cells[0].y)
+        self.assertEqual(1, gl.zones[0].cells[1].x)
+        self.assertEqual(2, gl.zones[0].cells[1].y)
         self.assertEqual(2, gl.zones[0].cells[2].x)
         self.assertEqual(2, gl.zones[0].cells[2].y)
 
@@ -113,9 +113,19 @@ class TestBot(unittest.TestCase):
         self.assertEqual(2, gl.zones[2].cells[0].x)
         self.assertEqual(2, gl.zones[2].cells[0].y)
 
+    def test_zone_detection_real_i1(self):
+        inputs = Inputs()
+        lines = inputs.I1
+        gl = self.__get_gl_from_input(lines)
+        gl.detect_zones()
+        self.assertEqual(3, len(gl.zones))
+        self.assertEqual(134, len(gl.zones[0].cells))
+        self.assertEqual(1, len(gl.zones[1].cells))
+        self.assertEqual(1, len(gl.zones[2].cells))
+
 
 # TODO:
-# add zones to gamelogic
+# [ ] do not place recyclers in owned zones
 
 if __name__ == "__main__":
     unittest.main()
