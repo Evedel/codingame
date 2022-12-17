@@ -10,10 +10,19 @@ class OwnerType(Enum):
     No = -1
 
 
-class Strategy(Enum):
-    Empty = 0
-    Atack = 1
-    Paint = 2
+class ZoneType(Enum):
+    # no enemy or my cells
+    Unreachable = 0
+    # only my cells
+    CapturedMy = 1
+    # only enemy cells
+    CapturedEn = 2
+    # my and enemy cells
+    FightInProgress = 3
+    # my and empty cells
+    GuaranteedMy = 4
+    # enemy and empty cells
+    GuaranteedEn = 5
 
 
 class Cell:
@@ -67,9 +76,11 @@ class Cell:
 
 class Zone:
     cells: list[Cell]
+    type: ZoneType
 
     def __init__(self):
         self.cells = []
+        self.type = None  # type: ignore
 
 
 class Map:
@@ -97,12 +108,6 @@ class GameLogic:
         self.map: Map = Map()
         self.zones: list[Zone] = []
 
-    class Path:
-        def __init__(self):
-            path: list[Cell] | None = None
-            cost: int | None = None
-            dist: float | None = None
-
     @staticmethod
     def dist(x1: int, y1: int, x2: int, y2: int) -> float:
         return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
@@ -120,6 +125,8 @@ class GameLogic:
                     self.zones.append(zone)
                 cell.zone_checked = True
 
+        self.mark_zones()
+
     def walk_zone(self, cell: Cell) -> Zone:
         cells_to_check: list[Cell] = []
         zone = Zone()
@@ -133,6 +140,50 @@ class GameLogic:
                 cells_to_check += self.get_addjusted_cells(cell_to_check)
             cell_to_check.zone_checked = True
         return zone
+
+    def mark_zones(self):
+        for zone in self.zones:
+            owned_numbers = {OwnerType.My: 0, OwnerType.En: 0, OwnerType.No: 0}
+            for cell in zone.cells:
+                owned_numbers[cell.Owner] += 1
+
+            if owned_numbers[OwnerType.No] == len(zone.cells):
+                zone.type = ZoneType.Unreachable
+
+            if owned_numbers[OwnerType.En] == len(zone.cells):
+                zone.type = ZoneType.CapturedEn
+
+            if owned_numbers[OwnerType.My] == len(zone.cells):
+                zone.type = ZoneType.CapturedMy
+
+            if (
+                zone.type == None
+                and (owned_numbers[OwnerType.No] != 0)
+                and (owned_numbers[OwnerType.En] != 0)
+                and (owned_numbers[OwnerType.My] != 0)
+            ):
+                zone.type = ZoneType.FightInProgress
+
+            if (
+                zone.type == None
+                and (owned_numbers[OwnerType.En] != 0)
+                and (owned_numbers[OwnerType.My] != 0)
+            ):
+                zone.type = ZoneType.FightInProgress
+
+            if (
+                zone.type == None
+                and (owned_numbers[OwnerType.No] != 0)
+                and (owned_numbers[OwnerType.En] != 0)
+            ):
+                zone.type = ZoneType.GuaranteedEn
+
+            if (
+                zone.type == None
+                and (owned_numbers[OwnerType.No] != 0)
+                and (owned_numbers[OwnerType.My] != 0)
+            ):
+                zone.type = ZoneType.GuaranteedMy
 
     def get_robot_moves(self) -> list[str]:
         move_cmds = []

@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock
 
 from z_2022_02.inputs import Inputs
-from z_2022_02.bot import GameLogic, InputHandler
+from z_2022_02.bot import GameLogic, InputHandler, ZoneType
 import unittest
 
 
@@ -137,9 +137,24 @@ class TestBot(unittest.TestCase):
         self.assertEqual(1, gl.zones[1].cells[0].x)
         self.assertEqual(2, gl.zones[1].cells[0].y)
 
+    def test_zone_detection_types_i1(self):
+        inputs = Inputs()
+        lines = inputs.zone_types_i1
+        gl = self.__get_gl_from_input(lines)
+        gl.detect_zones()
+        self.assertEqual(7, len(gl.zones))
+        self.assertEqual(ZoneType.CapturedMy, gl.zones[0].type)
+        self.assertEqual(ZoneType.CapturedEn, gl.zones[1].type)
+        self.assertEqual(ZoneType.FightInProgress, gl.zones[2].type)
+        self.assertEqual(ZoneType.Unreachable, gl.zones[3].type)
+        self.assertEqual(ZoneType.GuaranteedEn, gl.zones[4].type)
+        self.assertEqual(ZoneType.GuaranteedMy, gl.zones[5].type)
+        self.assertEqual(ZoneType.FightInProgress, gl.zones[6].type)
+
 
 # TODO:
 # [ ] do not place recyclers in owned zones
+# [ ] do not place recyclers so that it creates unreachable zones
 
 if __name__ == "__main__":
     unittest.main()
