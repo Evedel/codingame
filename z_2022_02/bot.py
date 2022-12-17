@@ -408,7 +408,10 @@ def main():
         moves = gl.get_robot_moves()
         builds = gl.get_builds()
         spawns = gl.get_spawns()
-        print(";".join(builds + spawns + moves))
+        if (len(moves) == 0) and (len(builds) == 0) and (len(spawns) == 0):
+            print("WAIT")
+        else:
+            print(";".join(builds + spawns + moves))
 
 
 if __name__ == "__main__":
