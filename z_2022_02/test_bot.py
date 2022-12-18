@@ -171,7 +171,31 @@ class TestBot(unittest.TestCase):
         gl.detect_zones()
         spawns = gl.get_spawns()
         self.assertEqual(
-            ["SPAWN 2 0 3", "SPAWN 8 3 4"],
+            ["SPAWN 2 0 4", "SPAWN 8 3 4"],
+            spawns,
+        )
+
+    def test_no_spawns_when_there_are_no_money(self):
+        inputs = Inputs()
+        lines = inputs.no_useless_spawns
+        gl = self.__get_gl_from_input(lines)
+        gl.detect_zones()
+        gl.my_matter = 0
+        spawns = gl.get_spawns()
+        self.assertEqual(
+            [],
+            spawns,
+        )
+
+    def test_no_spawns_when_there_are_no_money_2(self):
+        inputs = Inputs()
+        lines = inputs.no_useless_spawns
+        gl = self.__get_gl_from_input(lines)
+        gl.detect_zones()
+        gl.my_matter = 11
+        spawns = gl.get_spawns()
+        self.assertEqual(
+            ["SPAWN 1 0 3"],
             spawns,
         )
 
@@ -179,8 +203,11 @@ class TestBot(unittest.TestCase):
 # TODO:
 # - spawn bots only:
 #   - on border cells
+#   - do not spawn bots on the recycler destruction zones
 # - bot movement
 #   - lots rework needed
+#   - move bots to capture cells in the same zone only and more intentionally
+#   - move bots out of the recycler destruction zone
 # - do not place recyclers so that it creates unreachable zones
 
 if __name__ == "__main__":

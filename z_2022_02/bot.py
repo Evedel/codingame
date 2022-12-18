@@ -1,3 +1,4 @@
+from ast import Tuple
 from enum import Enum
 import math
 import random
@@ -186,18 +187,23 @@ class GameLogic:
         for cl in self.map.cells:
             for cell in cl:
                 if (cell.Owner == OwnerType.My) and (cell.Units > 0):
-                    if random.random() < 0.5:
-                        target = self.get_closest_unoccupied(cell)
+                    target_empy, dist_empty = self.get_closest_unoccupied(cell)
+                    target_enemy, dist_enemy = self.get_closest_enemy(cell)
+
+                    target = None
+                    if dist_empty < dist_enemy:
+                        target = target_empy
                     else:
-                        target = self.get_closest_enemy(cell)
+                        target = target_enemy
+
                     if target is not None:
                         move_cmds.append(
-                            f"MOVE 1 {cell.x} {cell.y} {target.x} {target.y}"
+                            f"MOVE {cell.Units} {cell.x} {cell.y} {target.x} {target.y}"
                         )
                         target.Owner = OwnerType.My
         return move_cmds
 
-    def get_closest_unoccupied(self, cell_from: Cell) -> Cell:
+    def get_closest_unoccupied(self, cell_from: Cell):
         dist = 10000
         cell_to = None
         for cl in self.map.cells:
@@ -207,9 +213,9 @@ class GameLogic:
                     if current_dist < dist:
                         dist = current_dist
                         cell_to = cell
-        return cell_to  # type: ignore
+        return cell_to, dist  # type: ignore
 
-    def get_closest_enemy(self, cell_from: Cell) -> Cell:
+    def get_closest_enemy(self, cell_from: Cell):
         dist = 10000
         cell_to = None
         for cl in self.map.cells:
@@ -219,7 +225,7 @@ class GameLogic:
                     if current_dist < dist:
                         dist = current_dist
                         cell_to = cell
-        return cell_to  # type: ignore
+        return cell_to, dist  # type: ignore
 
     def get_addjusted_cells(self, this_cell: Cell) -> list[Cell]:
         cells: list[Cell] = []
@@ -271,6 +277,9 @@ class GameLogic:
         max_spawns_guaranteed = int(max_spawns * 0.2)
         max_spawns_fighting = max_spawns - max_spawns_guaranteed
 
+        if max_spawns == 0:
+            return spawn_cmds
+
         need_guaranteed_spawns = False
         for zone in self.zones:
             if (zone.type == ZoneType.GuaranteedMy) and (zone.units[OwnerType.My] == 0):
@@ -280,47 +289,51 @@ class GameLogic:
             max_spawns_guaranteed = min(2, max_spawns)
             max_spawns_fighting = max_spawns - max_spawns_guaranteed
 
-        emptiest_zone = None
-        emptiest_fraction = 100000.0
-        for zone in self.zones:
-            if zone.type == ZoneType.GuaranteedMy:
-                fraction = zone.units[OwnerType.My] / zone.cell_owners[OwnerType.My]
-                if fraction < emptiest_fraction:
-                    emptiest_fraction = fraction
-                    emptiest_zone = zone
-
-        if emptiest_zone is not None:
-            cells = emptiest_zone.cells[:]
-            random.shuffle(cells)
-            for cell in cells:
-                if cell.CanSpawn:
-                    self.my_matter -= 10 * max_spawns_guaranteed
-                    spawn_cmds.append(
-                        f"SPAWN {max_spawns_guaranteed} {cell.x} {cell.y}"
-                    )
-                    break
-
-        emptiest_zone = None
-        emptiest_fraction = 100000.0
-        for zone in self.zones:
-            if zone.type == ZoneType.FightInProgress:
-                if zone.units[OwnerType.En] == 0:
-                    if emptiest_zone == None:
+        if max_spawns_guaranteed != 0:
+            emptiest_zone = None
+            emptiest_fraction = 100000.0
+            for zone in self.zones:
+                if zone.type == ZoneType.GuaranteedMy:
+                    fraction = zone.units[OwnerType.My] / zone.cell_owners[OwnerType.My]
+                    if fraction < emptiest_fraction:
+                        emptiest_fraction = fraction
                         emptiest_zone = zone
-                    continue
-                fraction = zone.units[OwnerType.My] / zone.units[OwnerType.En]
-                if fraction < emptiest_fraction:
-                    emptiest_fraction = fraction
-                    emptiest_zone = zone
 
-        if emptiest_zone is not None:
-            cells = emptiest_zone.cells[:]
-            random.shuffle(cells)
-            for cell in cells:
-                if cell.CanSpawn:
-                    self.my_matter -= 10 * max_spawns_fighting
-                    spawn_cmds.append(f"SPAWN {max_spawns_fighting} {cell.x} {cell.y}")
-                    break
+            if emptiest_zone is not None:
+                cells = emptiest_zone.cells[:]
+                random.shuffle(cells)
+                for cell in cells:
+                    if cell.CanSpawn:
+                        self.my_matter -= 10 * max_spawns_guaranteed
+                        spawn_cmds.append(
+                            f"SPAWN {max_spawns_guaranteed} {cell.x} {cell.y}"
+                        )
+                        break
+
+        if max_spawns_fighting != 0:
+            emptiest_zone = None
+            emptiest_fraction = 100000.0
+            for zone in self.zones:
+                if zone.type == ZoneType.FightInProgress:
+                    if zone.units[OwnerType.En] == 0:
+                        if emptiest_zone == None:
+                            emptiest_zone = zone
+                        continue
+                    fraction = zone.units[OwnerType.My] / zone.units[OwnerType.En]
+                    if fraction < emptiest_fraction:
+                        emptiest_fraction = fraction
+                        emptiest_zone = zone
+
+            if emptiest_zone is not None:
+                cells = emptiest_zone.cells[:]
+                random.shuffle(cells)
+                for cell in cells:
+                    if cell.CanSpawn:
+                        self.my_matter -= 10 * max_spawns_fighting
+                        spawn_cmds.append(
+                            f"SPAWN {max_spawns_fighting} {cell.x} {cell.y}"
+                        )
+                        break
 
         return spawn_cmds
 
