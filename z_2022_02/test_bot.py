@@ -208,8 +208,11 @@ class TestBot(unittest.TestCase):
 #   - lots rework needed
 #   - move bots to capture cells in the same zone only and more intentionally
 #   - move bots out of the recycler destruction zone
-# - do not place recyclers so that it creates unreachable zones
-
+# - recyclers
+#   - do not place recyclers so that it creates unreachable zones
+#   - do not place recyclers in the mid of my zones
+#   - need to ensure can spawn more recyclers than enemy
+#   - build recyclers to cut off enemy zones
 if __name__ == "__main__":
     random.seed(18081991)
     unittest.main()

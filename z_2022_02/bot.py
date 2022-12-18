@@ -183,24 +183,89 @@ class GameLogic:
                 zone.type = ZoneType.GuaranteedMy
 
     def get_robot_moves(self) -> list[str]:
-        move_cmds = []
+        units = []
+        targets = []
+        distances = []
+
         for cl in self.map.cells:
             for cell in cl:
                 if (cell.Owner == OwnerType.My) and (cell.Units > 0):
-                    target_empy, dist_empty = self.get_closest_unoccupied(cell)
-                    target_enemy, dist_enemy = self.get_closest_enemy(cell)
+                    units += [cell]
+                    targets += [None]
+                    distances += [10000]
 
+        move_cmds = []
+
+        repeat = True
+        while repeat:
+            for i in range(len(units)):
+                unit = units[i]
+                if targets[i] is None:
+                    target_empy, dist_empty = self.get_closest_unoccupied(unit)
+                    target_enemy, dist_enemy = self.get_closest_enemy(unit)
                     target = None
+                    distance = 10000
                     if dist_empty < dist_enemy:
                         target = target_empy
+                        distance = dist_empty
                     else:
                         target = target_enemy
-
+                        distance = dist_enemy
                     if target is not None:
-                        move_cmds.append(
-                            f"MOVE {cell.Units} {cell.x} {cell.y} {target.x} {target.y}"
-                        )
-                        target.Owner = OwnerType.My
+                        targets[i] = target
+                        distances[i] = distance
+
+            repeat = False
+            for i in range(len(targets)):
+                if targets[i] is not None:
+                    if targets[i].Owner == OwnerType.No:
+                        targets[i].Owner = OwnerType.My
+                    for j in range(len(targets)):
+                        if (
+                            (i != j)
+                            and (targets[i] == targets[j])
+                            and targets[i].Owner != OwnerType.En
+                        ):
+                            repeat = True
+                            if distances[i] < distances[j]:
+                                targets[j] = None
+                                distances[j] = 10000
+                            else:
+                                targets[i] = None
+                                distances[i] = 10000
+                                break
+
+        for i in range(len(units)):
+            if targets[i] is not None:
+                if units[i].Units > 2:
+                    units[i].Units = 2
+                move_cmds.append(
+                    f"MOVE {units[i].Units} {units[i].x} {units[i].y} {targets[i].x} {targets[i].y}"
+                )
+
+        # for cl in self.map.cells:
+        #     for cell in cl:
+        #         if (cell.Owner == OwnerType.My) and (cell.Units > 0):
+        #             target_empy, dist_empty = self.get_closest_unoccupied(cell)
+        #             target_enemy, dist_enemy = self.get_closest_enemy(cell)
+
+        #             target = None
+        #             distance = 10000
+        #             if dist_empty < dist_enemy:
+        #                 target = target_empy
+        #                 distance = dist_empty
+        #             else:
+        #                 target = target_enemy
+        #                 distance = dist_enemy
+
+        #             if target is not None:
+        #                 units += [cell.Units]
+        #                 targets += [target]
+        #                 distances += [distance]
+        #                 # move_cmds.append(
+        #                 #     f"MOVE {cell.Units} {cell.x} {cell.y} {target.x} {target.y}"
+        #                 # )
+        #                 target.Owner = OwnerType.My
         return move_cmds
 
     def get_closest_unoccupied(self, cell_from: Cell):
