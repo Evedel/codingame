@@ -48,7 +48,7 @@ class TestBot(unittest.TestCase):
         inputs = Inputs()
         lines = inputs.zone_i1
         gl = self.__get_gl_from_input_w_default_strategy(lines)
-        gl.detect_zones()
+        gl.preprocess()
         self.assertEqual(1, len(gl.zones))
         self.assertEqual(1, len(gl.zones[0].cells))
         self.assertEqual(1, gl.zones[0].cells[0].x)
@@ -58,7 +58,7 @@ class TestBot(unittest.TestCase):
         inputs = Inputs()
         lines = inputs.zone_i2
         gl = self.__get_gl_from_input_w_default_strategy(lines)
-        gl.detect_zones()
+        gl.preprocess()
         self.assertEqual(1, len(gl.zones))
         self.assertEqual(1, len(gl.zones[0].cells))
         self.assertEqual(0, gl.zones[0].cells[0].x)
@@ -68,7 +68,7 @@ class TestBot(unittest.TestCase):
         inputs = Inputs()
         lines = inputs.zone_i3
         gl = self.__get_gl_from_input_w_default_strategy(lines)
-        gl.detect_zones()
+        gl.preprocess()
         self.assertEqual(1, len(gl.zones))
         self.assertEqual(1, len(gl.zones[0].cells))
         self.assertEqual(2, gl.zones[0].cells[0].x)
@@ -78,7 +78,7 @@ class TestBot(unittest.TestCase):
         inputs = Inputs()
         lines = inputs.zone_i4
         gl = self.__get_gl_from_input_w_default_strategy(lines)
-        gl.detect_zones()
+        gl.preprocess()
         self.assertEqual(1, len(gl.zones))
         self.assertEqual(3, len(gl.zones[0].cells))
         self.assertEqual(0, gl.zones[0].cells[0].x)
@@ -92,7 +92,7 @@ class TestBot(unittest.TestCase):
         inputs = Inputs()
         lines = inputs.zone_i5
         gl = self.__get_gl_from_input_w_default_strategy(lines)
-        gl.detect_zones()
+        gl.preprocess()
         self.assertEqual(1, len(gl.zones))
         self.assertEqual(3, len(gl.zones[0].cells))
         self.assertEqual(0, gl.zones[0].cells[0].x)
@@ -106,7 +106,7 @@ class TestBot(unittest.TestCase):
         inputs = Inputs()
         lines = inputs.zone_i6
         gl = self.__get_gl_from_input_w_default_strategy(lines)
-        gl.detect_zones()
+        gl.preprocess()
         self.assertEqual(3, len(gl.zones))
         self.assertEqual(1, len(gl.zones[0].cells))
         self.assertEqual(1, len(gl.zones[1].cells))
@@ -122,7 +122,7 @@ class TestBot(unittest.TestCase):
         inputs = Inputs()
         lines = inputs.I1
         gl = self.__get_gl_from_input_w_default_strategy(lines)
-        gl.detect_zones()
+        gl.preprocess()
         self.assertEqual(3, len(gl.zones))
         self.assertEqual(134, len(gl.zones[0].cells))
         self.assertEqual(1, len(gl.zones[1].cells))
@@ -133,7 +133,7 @@ class TestBot(unittest.TestCase):
         inputs = Inputs()
         lines = inputs.zone_i7
         gl = self.__get_gl_from_input_w_default_strategy(lines)
-        gl.detect_zones()
+        gl.preprocess()
         self.assertEqual(2, len(gl.zones))
         self.assertEqual(1, len(gl.zones[0].cells))
         self.assertEqual(1, len(gl.zones[1].cells))
@@ -146,7 +146,7 @@ class TestBot(unittest.TestCase):
         inputs = Inputs()
         lines = inputs.zone_types_i1
         gl = self.__get_gl_from_input_w_default_strategy(lines)
-        gl.detect_zones()
+        gl.preprocess()
         self.assertEqual(7, len(gl.zones))
         self.assertEqual(ZoneType.CapturedMy, gl.zones[0].type)
         self.assertEqual(ZoneType.CapturedEn, gl.zones[1].type)
@@ -160,7 +160,7 @@ class TestBot(unittest.TestCase):
         inputs = Inputs()
         lines = inputs.no_builds_in_captured_zones
         gl = self.__get_gl_from_input_w_default_strategy(lines)
-        gl.detect_zones()
+        gl.preprocess()
         builds = gl.get_builds()
         self.assertEqual(["BUILD 3 4"], builds)
 
@@ -168,10 +168,10 @@ class TestBot(unittest.TestCase):
         inputs = Inputs()
         lines = inputs.no_useless_spawns
         gl = self.__get_gl_from_input_w_default_strategy(lines)
-        gl.detect_zones()
+        gl.preprocess()
         spawns = gl.get_spawns()
         self.assertEqual(
-            ["SPAWN 2 0 4", "SPAWN 8 3 4"],
+            ["SPAWN 1 0 4", "SPAWN 9 3 4"],
             spawns,
         )
 
@@ -179,7 +179,7 @@ class TestBot(unittest.TestCase):
         inputs = Inputs()
         lines = inputs.no_useless_spawns
         gl = self.__get_gl_from_input_w_default_strategy(lines)
-        gl.detect_zones()
+        gl.preprocess()
         gl.my_matter = 0
         spawns = gl.get_spawns()
         self.assertEqual(
@@ -191,19 +191,62 @@ class TestBot(unittest.TestCase):
         inputs = Inputs()
         lines = inputs.no_useless_spawns
         gl = self.__get_gl_from_input_w_default_strategy(lines)
-        gl.detect_zones()
+        gl.preprocess()
         gl.my_matter = 11
         spawns = gl.get_spawns()
         self.assertEqual(
-            ["SPAWN 1 0 3"],
+            ["SPAWN 1 0 4"],
+            spawns,
+        )
+
+    def test_no_spawns_when_zone_is_going_to_be_destroyed_1(self):
+        inputs = Inputs()
+        lines = inputs.not_spawn_on_zones_that_are_going_to_be_destroyed_1
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
+        gl.preprocess()
+        gl.my_matter = 10
+        spawns = gl.get_spawns()
+        self.assertEqual(
+            ["SPAWN 1 1 0"],
+            spawns,
+        )
+
+    def test_no_spawns_when_zone_is_going_to_be_destroyed_2(self):
+        inputs = Inputs()
+        lines = inputs.not_spawn_on_zones_that_are_going_to_be_destroyed_2
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
+        gl.preprocess()
+        spawns = gl.get_spawns()
+        self.assertEqual(
+            ["SPAWN 1 1 2"],
+            spawns,
+        )
+
+    def test_spawn_only_in_contact_zones_1(self):
+        inputs = Inputs()
+        lines = inputs.spawn_only_in_contact_zones_1
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
+        gl.preprocess()
+        spawns = gl.get_spawns()
+        self.assertEqual(
+            ["SPAWN 1 2 1", "SPAWN 1 0 1"],
+            spawns,
+        )
+
+    def test_spawn_only_in_contact_zones_2(self):
+        inputs = Inputs()
+        lines = inputs.spawn_only_in_contact_zones_2
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
+        gl.preprocess()
+        spawns = gl.get_spawns()
+        self.assertEqual(
+            ["SPAWN 1 2 1", "SPAWN 1 0 1"],
             spawns,
         )
 
 
 # TODO:
-# - spawn bots only:
-#   - on border cells
-#   - do not spawn bots on the recycler destruction zones
+# - spawns:
 # - bot movement
 #   - lots rework needed
 #   - move bots to capture cells in the same zone only and more intentionally

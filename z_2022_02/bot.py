@@ -38,6 +38,58 @@ class Cell:
         self.x: int = 0
         self.y: int = 0
         self.zone_checked: bool = False
+        self.n_u: Cell = None  # type: ignore
+        self.n_d: Cell = None  # type: ignore
+        self.n_l: Cell = None  # type: ignore
+        self.n_r: Cell = None  # type: ignore
+
+    def is_alomost_destroyed(self):
+        return self.InRangeOfRecycler and self.ScrapAmount == 1
+
+    def is_contact_with_enemy(self):
+        if self.n_u and (self.n_u.Owner == OwnerType.En) and (self.ScrapAmount > 0):
+            return True
+        if self.n_d and (self.n_d.Owner == OwnerType.En) and (self.ScrapAmount > 0):
+            return True
+        if self.n_l and (self.n_l.Owner == OwnerType.En) and (self.ScrapAmount > 0):
+            return True
+        if self.n_r and (self.n_r.Owner == OwnerType.En) and (self.ScrapAmount > 0):
+            return True
+        return False
+
+    def is_contact_with_empty(self):
+        if (
+            self.n_u
+            and (self.n_u.Owner == OwnerType.No)
+            and (self.ScrapAmount > 0)
+            and (self.n_u.ScrapAmount > 0)
+        ):
+            return True
+        if (
+            self.n_d
+            and (self.n_d.Owner == OwnerType.No)
+            and (self.ScrapAmount > 0)
+            and (self.n_d.ScrapAmount > 0)
+        ):
+            return True
+        if (
+            self.n_l
+            and (self.n_l.Owner == OwnerType.No)
+            and (self.ScrapAmount > 0)
+            and (self.n_l.ScrapAmount > 0)
+        ):
+            return True
+        if (
+            self.n_r
+            and (self.n_r.Owner == OwnerType.No)
+            and (self.ScrapAmount > 0)
+            and (self.n_r.ScrapAmount > 0)
+        ):
+            return True
+        return False
+
+    def is_contact(self):
+        return self.is_contact_with_enemy() or self.is_contact_with_empty()
 
     def to_map(self):
         print_char = self.ScrapAmount
@@ -105,6 +157,14 @@ class Strategy(ABC):
         pass
 
 
+class Move:
+    def __init__(self, cell: Cell, target: Cell, zone: Zone, distance: float):
+        self.cell = cell
+        self.target = target
+        self.zone = zone
+        self.distance = distance
+
+
 class GameLogic:
     def __init__(self, strategy: Strategy):
         self.my_id: int = 0
@@ -128,7 +188,24 @@ class GameLogic:
             return True
         return False
 
-    def detect_zones(self) -> None:
+    def preprocess(self) -> None:
+        self.link_cells()
+        self.zones_init()
+
+    def link_cells(self):
+        for y in range(self.height):
+            for x in range(self.width):
+                cell = self.map.cell(x, y)
+                if x > 0:
+                    cell.n_l = self.map.cell(x - 1, y)
+                if x < self.width - 1:
+                    cell.n_r = self.map.cell(x + 1, y)
+                if y > 0:
+                    cell.n_u = self.map.cell(x, y - 1)
+                if y < self.height - 1:
+                    cell.n_d = self.map.cell(x, y + 1)
+
+    def zones_init(self):
         self.zones.clear()
         for cl in self.map.cells:
             for cell in cl:
@@ -202,42 +279,38 @@ class GameLogic:
             ):
                 zone.type = ZoneType.GuaranteedMy
 
-    def get_closest_unoccupied(self, cell_from: Cell):
+    def get_closest_unoccupied(self, cell_from: Cell, zone: Zone):
         dist = 10000
         cell_to = None
-        for cl in self.map.cells:
-            for cell in cl:
-                if cell.Owner == OwnerType.No and cell.ScrapAmount > 0:
-                    current_dist = self.dist(cell_from.x, cell_from.y, cell.x, cell.y)
-                    if current_dist < dist:
-                        dist = current_dist
-                        cell_to = cell
+        for cell in zone.cells:
+            if cell.Owner == OwnerType.No and cell.ScrapAmount > 0:
+                current_dist = self.dist(cell_from.x, cell_from.y, cell.x, cell.y)
+                if current_dist < dist:
+                    dist = current_dist
+                    cell_to = cell
         return cell_to, dist  # type: ignore
 
-    def get_closest_enemy(self, cell_from: Cell):
+    def get_closest_enemy(self, cell_from: Cell, zone: Zone):
         dist = 10000
         cell_to = None
-        for cl in self.map.cells:
-            for cell in cl:
-                if cell.Owner == OwnerType.En:
-                    current_dist = self.dist(cell_from.x, cell_from.y, cell.x, cell.y)
-                    if current_dist < dist:
-                        dist = current_dist
-                        cell_to = cell
+        for cell in zone.cells:
+            if cell.Owner == OwnerType.En:
+                current_dist = self.dist(cell_from.x, cell_from.y, cell.x, cell.y)
+                if current_dist < dist:
+                    dist = current_dist
+                    cell_to = cell
         return cell_to, dist  # type: ignore
 
     def get_addjusted_cells(self, this_cell: Cell) -> list[Cell]:
         cells: list[Cell] = []
-        x = this_cell.x
-        y = this_cell.y
-        if x > 0:
-            cells.append(self.map.cell(x - 1, y))
-        if x < self.width - 1:
-            cells.append(self.map.cell(x + 1, y))
-        if y > 0:
-            cells.append(self.map.cell(x, y - 1))
-        if y < self.height - 1:
-            cells.append(self.map.cell(x, y + 1))
+        if this_cell.n_u:
+            cells.append(this_cell.n_u)
+        if this_cell.n_d:
+            cells.append(this_cell.n_d)
+        if this_cell.n_l:
+            cells.append(this_cell.n_l)
+        if this_cell.n_r:
+            cells.append(this_cell.n_r)
         return cells
 
     def get_moves(self) -> list[str]:
@@ -254,23 +327,48 @@ class StrategyDefault(Strategy):
     def post_init(self, game_logic: "GameLogic") -> None:
         self.game_logic = game_logic
 
+    def get_spawn_point_in_guaranteed_zone(self, zone: Zone, amount: int) -> str:
+        shuffled_cells = zone.cells[:]
+        random.shuffle(shuffled_cells)
+        for cell in shuffled_cells:
+            if cell.CanSpawn and (not cell.is_alomost_destroyed()):
+                if cell.is_contact_with_empty():
+                    self.game_logic.my_matter -= 10 * amount
+                    return f"SPAWN {amount} {cell.x} {cell.y}"
+        return None  # type: ignore
+
+    def get_spawn_point_in_fighting_zone(self, zone: Zone, amount: int) -> str:
+        are_there_contact_cells = False
+        for cells in zone.cells:
+            if cells.CanSpawn and (not cells.is_alomost_destroyed()):
+                if cells.is_contact_with_enemy():
+                    are_there_contact_cells = True
+                    break
+        if are_there_contact_cells:
+            shuffled_cells = zone.cells[:]
+            random.shuffle(shuffled_cells)
+            for cell in shuffled_cells:
+                if cell.CanSpawn and (not cell.is_alomost_destroyed()):
+                    if cell.is_contact_with_enemy():
+                        self.game_logic.my_matter -= 10 * amount
+                        return f"SPAWN {amount} {cell.x} {cell.y}"
+        else:
+            return self.get_spawn_point_in_guaranteed_zone(zone, amount)
+        return None  # type: ignore
+
     def get_spawns(self) -> list[str]:
         spawn_cmds = []
         max_spawns = self.game_logic.my_matter // 10
-        max_spawns_guaranteed = int(max_spawns * 0.2)
-        max_spawns_fighting = max_spawns - max_spawns_guaranteed
 
         if max_spawns == 0:
             return spawn_cmds
 
-        need_guaranteed_spawns = False
+        max_spawns_guaranteed = 0
         for zone in self.game_logic.zones:
             if (zone.type == ZoneType.GuaranteedMy) and (zone.units[OwnerType.My] == 0):
-                need_guaranteed_spawns = True
+                max_spawns_guaranteed = 1
 
-        if need_guaranteed_spawns:
-            max_spawns_guaranteed = min(2, max_spawns)
-            max_spawns_fighting = max_spawns - max_spawns_guaranteed
+        max_spawns_fighting = max_spawns - max_spawns_guaranteed
 
         if max_spawns_guaranteed != 0:
             emptiest_zone = None
@@ -283,15 +381,11 @@ class StrategyDefault(Strategy):
                         emptiest_zone = zone
 
             if emptiest_zone is not None:
-                cells = emptiest_zone.cells[:]
-                random.shuffle(cells)
-                for cell in cells:
-                    if cell.CanSpawn:
-                        self.game_logic.my_matter -= 10 * max_spawns_guaranteed
-                        spawn_cmds.append(
-                            f"SPAWN {max_spawns_guaranteed} {cell.x} {cell.y}"
-                        )
-                        break
+                spawn_cmd = self.get_spawn_point_in_guaranteed_zone(
+                    emptiest_zone, max_spawns_guaranteed
+                )
+                if spawn_cmd is not None:
+                    spawn_cmds.append(spawn_cmd)
 
         if max_spawns_fighting != 0:
             emptiest_zone = None
@@ -308,15 +402,12 @@ class StrategyDefault(Strategy):
                         emptiest_zone = zone
 
             if emptiest_zone is not None:
-                cells = emptiest_zone.cells[:]
-                random.shuffle(cells)
-                for cell in cells:
-                    if cell.CanSpawn:
-                        self.game_logic.my_matter -= 10 * max_spawns_fighting
-                        spawn_cmds.append(
-                            f"SPAWN {max_spawns_fighting} {cell.x} {cell.y}"
-                        )
-                        break
+                spawn_cmd = self.get_spawn_point_in_fighting_zone(
+                    emptiest_zone, max_spawns_fighting
+                )
+                if spawn_cmd is not None:
+                    spawn_cmds.append(spawn_cmd)
+
         return spawn_cmds
 
     def get_builds(self) -> list[str]:
@@ -352,68 +443,59 @@ class StrategyDefault(Strategy):
                                 return build_cmds
         return build_cmds
 
-    def get_moves(self) -> list[str]:
-        units = []
-        targets = []
-        distances = []
+    def get_move_target(self, zone: Zone, cell: Cell) -> Move:
+        if cell.Owner == OwnerType.My and cell.Units > 0:
+            if zone.type == ZoneType.FightInProgress:
+                target, distance = self.game_logic.get_closest_enemy(cell, zone)
+                if target:
+                    return Move(cell, target, zone, distance)
+            elif zone.type == ZoneType.GuaranteedMy:
+                target, distance = self.game_logic.get_closest_unoccupied(cell, zone)
+                if target:
+                    return Move(cell, target, zone, distance)
+        return None  # type: ignore
 
-        for cl in self.game_logic.map.cells:
-            for cell in cl:
-                if (cell.Owner == OwnerType.My) and (cell.Units > 0):
-                    units += [cell]
-                    targets += [None]
-                    distances += [10000]
+    def get_moves(self) -> list[str]:
+        moves: list[Move] = []
+        for zone in self.game_logic.zones:
+            for cell in zone.cells:
+                move = self.get_move_target(zone, cell)
+                if move:
+                    moves.append(move)
+
+        # repeat = True
+        # while repeat:
+        #     for i in range(len(moves)):
+        #         if moves[i].target is None:
+        #             moves[i] = self.get_move_target(moves[i].zone, moves[i].cell)
+
+        #     repeat = False
+        #     for i in range(len(moves)):
+        #         if moves[i].target is not None:
+        #             if moves[i].target.Owner == OwnerType.No:
+        #                 moves[i].target.Owner = OwnerType.My
+        #             for j in range(len(moves)):
+        #                 if (
+        #                     (i != j)
+        #                     and (moves[i].target == moves[j].target)
+        #                     and moves[i].target.Owner != OwnerType.En
+        #                 ):
+        #                     repeat = True
+        #                     if distances[i] < distances[j]:
+        #                         targets[j] = None
+        #                         distances[j] = 10000
+        #                     else:
+        #                         targets[i] = None
+        #                         distances[i] = 10000
+        #                         break
 
         move_cmds = []
-
-        repeat = True
-        while repeat:
-            for i in range(len(units)):
-                unit = units[i]
-                if targets[i] is None:
-                    target_empy, dist_empty = self.game_logic.get_closest_unoccupied(
-                        unit
-                    )
-                    target_enemy, dist_enemy = self.game_logic.get_closest_enemy(unit)
-                    target = None
-                    distance = 10000
-                    if dist_empty < dist_enemy:
-                        target = target_empy
-                        distance = dist_empty
-                    else:
-                        target = target_enemy
-                        distance = dist_enemy
-                    if target is not None:
-                        targets[i] = target
-                        distances[i] = distance
-
-            repeat = False
-            for i in range(len(targets)):
-                if targets[i] is not None:
-                    if targets[i].Owner == OwnerType.No:
-                        targets[i].Owner = OwnerType.My
-                    for j in range(len(targets)):
-                        if (
-                            (i != j)
-                            and (targets[i] == targets[j])
-                            and targets[i].Owner != OwnerType.En
-                        ):
-                            repeat = True
-                            if distances[i] < distances[j]:
-                                targets[j] = None
-                                distances[j] = 10000
-                            else:
-                                targets[i] = None
-                                distances[i] = 10000
-                                break
-
-        for i in range(len(units)):
-            if targets[i] is not None:
-                if units[i].Units > 2:
-                    units[i].Units = 2
-                move_cmds.append(
-                    f"MOVE {units[i].Units} {units[i].x} {units[i].y} {targets[i].x} {targets[i].y}"
-                )
+        for move in moves:
+            if move.cell.Units > 2:
+                move.cell.Units = 2
+            move_cmds.append(
+                f"MOVE {move.cell.Units} {move.cell.x} {move.cell.y} {move.target.x} {move.target.y}"
+            )
         return move_cmds
 
 
@@ -511,12 +593,12 @@ def main():
     random.seed(18081991)
     # ih = InputHandler(input=InputHandler.__input_debugger__)  # type: ignore
     ih = InputHandler()  # type: ignore
-    gl = GameLogic(StrategySplits())
+    gl = GameLogic(StrategyDefault())
 
     gl = ih.read_initial_input(gl)
     while True:
         gl = ih.read_turn_input(gl)
-        gl.detect_zones()
+        gl.preprocess()
         moves = gl.get_moves()
         builds = gl.get_builds()
         spawns = gl.get_spawns()
