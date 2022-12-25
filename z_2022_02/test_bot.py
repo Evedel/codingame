@@ -4,7 +4,7 @@ import random
 from unittest.mock import MagicMock
 
 from z_2022_02.inputs import Inputs
-from z_2022_02.bot import GameLogic, InputHandler, ZoneType
+from z_2022_02.bot import GameLogic, InputHandler, StrategyDefault, ZoneType
 import unittest
 
 
@@ -22,7 +22,7 @@ class TestBot(unittest.TestCase):
         input.side_effect = lines
 
         ih = InputHandler(input=input)
-        gl = GameLogic()
+        gl = GameLogic(StrategyDefault())
         gl = ih.read_initial_input(gl)
         gl = ih.read_turn_input(gl)
 
@@ -33,12 +33,12 @@ class TestBot(unittest.TestCase):
                     f"{i} {j} {gl.map.cells[i][j]} {map.cells[i][j]}",
                 )
 
-    def __get_gl_from_input(self, input_lines: list[str]):
+    def __get_gl_from_input_w_default_strategy(self, input_lines: list[str]):
         input = MagicMock()
         input.side_effect = input_lines
 
         ih = InputHandler(input=input)
-        gl = GameLogic()
+        gl = GameLogic(StrategyDefault())
         gl = ih.read_initial_input(gl)
         gl = ih.read_turn_input(gl)
 
@@ -47,7 +47,7 @@ class TestBot(unittest.TestCase):
     def test_zone_detection_i1(self):
         inputs = Inputs()
         lines = inputs.zone_i1
-        gl = self.__get_gl_from_input(lines)
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
         gl.detect_zones()
         self.assertEqual(1, len(gl.zones))
         self.assertEqual(1, len(gl.zones[0].cells))
@@ -57,7 +57,7 @@ class TestBot(unittest.TestCase):
     def test_zone_detection_i2(self):
         inputs = Inputs()
         lines = inputs.zone_i2
-        gl = self.__get_gl_from_input(lines)
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
         gl.detect_zones()
         self.assertEqual(1, len(gl.zones))
         self.assertEqual(1, len(gl.zones[0].cells))
@@ -67,7 +67,7 @@ class TestBot(unittest.TestCase):
     def test_zone_detection_i3(self):
         inputs = Inputs()
         lines = inputs.zone_i3
-        gl = self.__get_gl_from_input(lines)
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
         gl.detect_zones()
         self.assertEqual(1, len(gl.zones))
         self.assertEqual(1, len(gl.zones[0].cells))
@@ -77,7 +77,7 @@ class TestBot(unittest.TestCase):
     def test_zone_detection_i4(self):
         inputs = Inputs()
         lines = inputs.zone_i4
-        gl = self.__get_gl_from_input(lines)
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
         gl.detect_zones()
         self.assertEqual(1, len(gl.zones))
         self.assertEqual(3, len(gl.zones[0].cells))
@@ -91,7 +91,7 @@ class TestBot(unittest.TestCase):
     def test_zone_detection_i5(self):
         inputs = Inputs()
         lines = inputs.zone_i5
-        gl = self.__get_gl_from_input(lines)
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
         gl.detect_zones()
         self.assertEqual(1, len(gl.zones))
         self.assertEqual(3, len(gl.zones[0].cells))
@@ -105,7 +105,7 @@ class TestBot(unittest.TestCase):
     def test_zone_detection_i6(self):
         inputs = Inputs()
         lines = inputs.zone_i6
-        gl = self.__get_gl_from_input(lines)
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
         gl.detect_zones()
         self.assertEqual(3, len(gl.zones))
         self.assertEqual(1, len(gl.zones[0].cells))
@@ -121,7 +121,7 @@ class TestBot(unittest.TestCase):
     def test_zone_detection_real_i1(self):
         inputs = Inputs()
         lines = inputs.I1
-        gl = self.__get_gl_from_input(lines)
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
         gl.detect_zones()
         self.assertEqual(3, len(gl.zones))
         self.assertEqual(134, len(gl.zones[0].cells))
@@ -132,7 +132,7 @@ class TestBot(unittest.TestCase):
         # recycler devides zones
         inputs = Inputs()
         lines = inputs.zone_i7
-        gl = self.__get_gl_from_input(lines)
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
         gl.detect_zones()
         self.assertEqual(2, len(gl.zones))
         self.assertEqual(1, len(gl.zones[0].cells))
@@ -145,7 +145,7 @@ class TestBot(unittest.TestCase):
     def test_zone_detection_types_i1(self):
         inputs = Inputs()
         lines = inputs.zone_types_i1
-        gl = self.__get_gl_from_input(lines)
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
         gl.detect_zones()
         self.assertEqual(7, len(gl.zones))
         self.assertEqual(ZoneType.CapturedMy, gl.zones[0].type)
@@ -159,7 +159,7 @@ class TestBot(unittest.TestCase):
     def test_no_builds_in_captured_zones(self):
         inputs = Inputs()
         lines = inputs.no_builds_in_captured_zones
-        gl = self.__get_gl_from_input(lines)
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
         gl.detect_zones()
         builds = gl.get_builds()
         self.assertEqual(["BUILD 3 4"], builds)
@@ -167,7 +167,7 @@ class TestBot(unittest.TestCase):
     def test_no_useless_spawns(self):
         inputs = Inputs()
         lines = inputs.no_useless_spawns
-        gl = self.__get_gl_from_input(lines)
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
         gl.detect_zones()
         spawns = gl.get_spawns()
         self.assertEqual(
@@ -178,7 +178,7 @@ class TestBot(unittest.TestCase):
     def test_no_spawns_when_there_are_no_money(self):
         inputs = Inputs()
         lines = inputs.no_useless_spawns
-        gl = self.__get_gl_from_input(lines)
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
         gl.detect_zones()
         gl.my_matter = 0
         spawns = gl.get_spawns()
@@ -190,7 +190,7 @@ class TestBot(unittest.TestCase):
     def test_no_spawns_when_there_are_no_money_2(self):
         inputs = Inputs()
         lines = inputs.no_useless_spawns
-        gl = self.__get_gl_from_input(lines)
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
         gl.detect_zones()
         gl.my_matter = 11
         spawns = gl.get_spawns()

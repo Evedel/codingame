@@ -1,4 +1,4 @@
-from ast import Tuple
+from abc import ABC, abstractmethod
 from enum import Enum
 import math
 import random
@@ -70,6 +70,7 @@ class Zone:
         self.type: ZoneType = None  # type: ignore
         self.cell_owners: dict[OwnerType, int]
         self.units: dict[OwnerType, int]
+        self.cutline: list[Cell] = []
 
 
 class Map:
@@ -86,8 +87,26 @@ class Map:
         return self.cells[y][x]
 
 
+class Strategy(ABC):
+    @abstractmethod
+    def post_init(self, game_logic: "GameLogic") -> None:
+        pass
+
+    @abstractmethod
+    def get_moves(self) -> list[str]:
+        pass
+
+    @abstractmethod
+    def get_builds(self) -> list[str]:
+        pass
+
+    @abstractmethod
+    def get_spawns(self) -> list[str]:
+        pass
+
+
 class GameLogic:
-    def __init__(self):
+    def __init__(self, strategy: Strategy):
         self.my_id: int = 0
         self.en_id: int = 0
         self.width: int = 0
@@ -98,6 +117,8 @@ class GameLogic:
         self.zones: list[Zone] = []
         self.RecyclerMy = 0
         self.RecyclerEn = 0
+        self.Strategy = strategy
+        self.Strategy.post_init(self)
 
     @staticmethod
     def dist(x1: int, y1: int, x2: int, y2: int) -> float:
@@ -182,12 +203,162 @@ class GameLogic:
             ):
                 zone.type = ZoneType.GuaranteedMy
 
-    def get_robot_moves(self) -> list[str]:
+    def get_closest_unoccupied(self, cell_from: Cell):
+        dist = 10000
+        cell_to = None
+        for cl in self.map.cells:
+            for cell in cl:
+                if cell.Owner == OwnerType.No and cell.ScrapAmount > 0:
+                    current_dist = self.dist(cell_from.x, cell_from.y, cell.x, cell.y)
+                    if current_dist < dist:
+                        dist = current_dist
+                        cell_to = cell
+        return cell_to, dist  # type: ignore
+
+    def get_closest_enemy(self, cell_from: Cell):
+        dist = 10000
+        cell_to = None
+        for cl in self.map.cells:
+            for cell in cl:
+                if cell.Owner == OwnerType.En:
+                    current_dist = self.dist(cell_from.x, cell_from.y, cell.x, cell.y)
+                    if current_dist < dist:
+                        dist = current_dist
+                        cell_to = cell
+        return cell_to, dist  # type: ignore
+
+    def get_addjusted_cells(self, this_cell: Cell) -> list[Cell]:
+        cells: list[Cell] = []
+        x = this_cell.x
+        y = this_cell.y
+        if x > 0:
+            cells.append(self.map.cell(x - 1, y))
+        if x < self.width - 1:
+            cells.append(self.map.cell(x + 1, y))
+        if y > 0:
+            cells.append(self.map.cell(x, y - 1))
+        if y < self.height - 1:
+            cells.append(self.map.cell(x, y + 1))
+        return cells
+
+    def get_moves(self) -> list[str]:
+        return self.Strategy.get_moves()
+
+    def get_builds(self) -> list[str]:
+        return self.Strategy.get_builds()
+
+    def get_spawns(self) -> list[str]:
+        return self.Strategy.get_spawns()
+
+
+class StrategyDefault(Strategy):
+    def post_init(self, game_logic: "GameLogic") -> None:
+        self.game_logic = game_logic
+
+    def get_spawns(self) -> list[str]:
+        spawn_cmds = []
+        max_spawns = self.game_logic.my_matter // 10
+        max_spawns_guaranteed = int(max_spawns * 0.2)
+        max_spawns_fighting = max_spawns - max_spawns_guaranteed
+
+        if max_spawns == 0:
+            return spawn_cmds
+
+        need_guaranteed_spawns = False
+        for zone in self.game_logic.zones:
+            if (zone.type == ZoneType.GuaranteedMy) and (zone.units[OwnerType.My] == 0):
+                need_guaranteed_spawns = True
+
+        if need_guaranteed_spawns:
+            max_spawns_guaranteed = min(2, max_spawns)
+            max_spawns_fighting = max_spawns - max_spawns_guaranteed
+
+        if max_spawns_guaranteed != 0:
+            emptiest_zone = None
+            emptiest_fraction = 100000.0
+            for zone in self.game_logic.zones:
+                if zone.type == ZoneType.GuaranteedMy:
+                    fraction = zone.units[OwnerType.My] / zone.cell_owners[OwnerType.My]
+                    if fraction < emptiest_fraction:
+                        emptiest_fraction = fraction
+                        emptiest_zone = zone
+
+            if emptiest_zone is not None:
+                cells = emptiest_zone.cells[:]
+                random.shuffle(cells)
+                for cell in cells:
+                    if cell.CanSpawn:
+                        self.game_logic.my_matter -= 10 * max_spawns_guaranteed
+                        spawn_cmds.append(
+                            f"SPAWN {max_spawns_guaranteed} {cell.x} {cell.y}"
+                        )
+                        break
+
+        if max_spawns_fighting != 0:
+            emptiest_zone = None
+            emptiest_fraction = 100000.0
+            for zone in self.game_logic.zones:
+                if zone.type == ZoneType.FightInProgress:
+                    if zone.units[OwnerType.En] == 0:
+                        if emptiest_zone == None:
+                            emptiest_zone = zone
+                        continue
+                    fraction = zone.units[OwnerType.My] / zone.units[OwnerType.En]
+                    if fraction < emptiest_fraction:
+                        emptiest_fraction = fraction
+                        emptiest_zone = zone
+
+            if emptiest_zone is not None:
+                cells = emptiest_zone.cells[:]
+                random.shuffle(cells)
+                for cell in cells:
+                    if cell.CanSpawn:
+                        self.game_logic.my_matter -= 10 * max_spawns_fighting
+                        spawn_cmds.append(
+                            f"SPAWN {max_spawns_fighting} {cell.x} {cell.y}"
+                        )
+                        break
+        return spawn_cmds
+
+    def get_builds(self) -> list[str]:
+        build_cmds = []
+        if self.game_logic.RecyclerMy > self.game_logic.RecyclerEn:
+            return build_cmds
+        for zone in self.game_logic.zones:
+            if zone.type == ZoneType.FightInProgress:
+                for cell in zone.cells:
+                    if self.game_logic.my_matter >= 10 and cell.CanBuild:
+                        should_build = True
+                        adjusted_cells = self.game_logic.get_addjusted_cells(cell)
+                        for adj_cell in adjusted_cells:
+                            if adj_cell.Recycler and adj_cell.Owner == OwnerType.My:
+                                should_build = False
+                            else:
+                                adjusted_of_adjusted_cells = (
+                                    self.game_logic.get_addjusted_cells(adj_cell)
+                                )
+                                for adj_adj_cell in adjusted_of_adjusted_cells:
+                                    if (
+                                        adj_adj_cell.Recycler
+                                        and adj_adj_cell.Owner == OwnerType.My
+                                    ):
+                                        should_build = False
+                        if should_build:
+                            cell.CanBuild = False
+                            cell.Recycler = True
+                            self.game_logic.my_matter -= 10
+                            self.game_logic.RecyclerMy += 1
+                            build_cmds.append(f"BUILD {cell.x} {cell.y}")
+                            if self.game_logic.RecyclerMy > self.game_logic.RecyclerEn:
+                                return build_cmds
+        return build_cmds
+
+    def get_moves(self) -> list[str]:
         units = []
         targets = []
         distances = []
 
-        for cl in self.map.cells:
+        for cl in self.game_logic.map.cells:
             for cell in cl:
                 if (cell.Owner == OwnerType.My) and (cell.Units > 0):
                     units += [cell]
@@ -201,8 +372,10 @@ class GameLogic:
             for i in range(len(units)):
                 unit = units[i]
                 if targets[i] is None:
-                    target_empy, dist_empty = self.get_closest_unoccupied(unit)
-                    target_enemy, dist_enemy = self.get_closest_enemy(unit)
+                    target_empy, dist_empty = self.game_logic.get_closest_unoccupied(
+                        unit
+                    )
+                    target_enemy, dist_enemy = self.game_logic.get_closest_enemy(unit)
                     target = None
                     distance = 10000
                     if dist_empty < dist_enemy:
@@ -242,165 +415,7 @@ class GameLogic:
                 move_cmds.append(
                     f"MOVE {units[i].Units} {units[i].x} {units[i].y} {targets[i].x} {targets[i].y}"
                 )
-
-        # for cl in self.map.cells:
-        #     for cell in cl:
-        #         if (cell.Owner == OwnerType.My) and (cell.Units > 0):
-        #             target_empy, dist_empty = self.get_closest_unoccupied(cell)
-        #             target_enemy, dist_enemy = self.get_closest_enemy(cell)
-
-        #             target = None
-        #             distance = 10000
-        #             if dist_empty < dist_enemy:
-        #                 target = target_empy
-        #                 distance = dist_empty
-        #             else:
-        #                 target = target_enemy
-        #                 distance = dist_enemy
-
-        #             if target is not None:
-        #                 units += [cell.Units]
-        #                 targets += [target]
-        #                 distances += [distance]
-        #                 # move_cmds.append(
-        #                 #     f"MOVE {cell.Units} {cell.x} {cell.y} {target.x} {target.y}"
-        #                 # )
-        #                 target.Owner = OwnerType.My
         return move_cmds
-
-    def get_closest_unoccupied(self, cell_from: Cell):
-        dist = 10000
-        cell_to = None
-        for cl in self.map.cells:
-            for cell in cl:
-                if cell.Owner == OwnerType.No and cell.ScrapAmount > 0:
-                    current_dist = self.dist(cell_from.x, cell_from.y, cell.x, cell.y)
-                    if current_dist < dist:
-                        dist = current_dist
-                        cell_to = cell
-        return cell_to, dist  # type: ignore
-
-    def get_closest_enemy(self, cell_from: Cell):
-        dist = 10000
-        cell_to = None
-        for cl in self.map.cells:
-            for cell in cl:
-                if cell.Owner == OwnerType.En:
-                    current_dist = self.dist(cell_from.x, cell_from.y, cell.x, cell.y)
-                    if current_dist < dist:
-                        dist = current_dist
-                        cell_to = cell
-        return cell_to, dist  # type: ignore
-
-    def get_addjusted_cells(self, this_cell: Cell) -> list[Cell]:
-        cells: list[Cell] = []
-        x = this_cell.x
-        y = this_cell.y
-        if x > 0:
-            cells.append(self.map.cell(x - 1, y))
-        if x < self.width - 1:
-            cells.append(self.map.cell(x + 1, y))
-        if y > 0:
-            cells.append(self.map.cell(x, y - 1))
-        if y < self.height - 1:
-            cells.append(self.map.cell(x, y + 1))
-        return cells
-
-    def get_builds(self) -> list[str]:
-        build_cmds = []
-        if self.RecyclerMy > self.RecyclerEn:
-            return build_cmds
-        for zone in self.zones:
-            if zone.type == ZoneType.FightInProgress:
-                for cell in zone.cells:
-                    if self.my_matter >= 10 and cell.CanBuild:
-                        should_build = True
-                        adjusted_cells = self.get_addjusted_cells(cell)
-                        for adj_cell in adjusted_cells:
-                            if adj_cell.Recycler:
-                                should_build = False
-                            else:
-                                adjusted_of_adjusted_cells = self.get_addjusted_cells(
-                                    adj_cell
-                                )
-                                for adj_adj_cell in adjusted_of_adjusted_cells:
-                                    if adj_adj_cell.Recycler:
-                                        should_build = False
-                        if should_build:
-                            cell.CanBuild = False
-                            cell.Recycler = True
-                            self.my_matter -= 10
-                            self.RecyclerMy += 1
-                            build_cmds.append(f"BUILD {cell.x} {cell.y}")
-                            if self.RecyclerMy > self.RecyclerEn:
-                                return build_cmds
-        return build_cmds
-
-    def get_spawns(self) -> list[str]:
-        spawn_cmds = []
-        max_spawns = self.my_matter // 10
-        max_spawns_guaranteed = int(max_spawns * 0.2)
-        max_spawns_fighting = max_spawns - max_spawns_guaranteed
-
-        if max_spawns == 0:
-            return spawn_cmds
-
-        need_guaranteed_spawns = False
-        for zone in self.zones:
-            if (zone.type == ZoneType.GuaranteedMy) and (zone.units[OwnerType.My] == 0):
-                need_guaranteed_spawns = True
-
-        if need_guaranteed_spawns:
-            max_spawns_guaranteed = min(2, max_spawns)
-            max_spawns_fighting = max_spawns - max_spawns_guaranteed
-
-        if max_spawns_guaranteed != 0:
-            emptiest_zone = None
-            emptiest_fraction = 100000.0
-            for zone in self.zones:
-                if zone.type == ZoneType.GuaranteedMy:
-                    fraction = zone.units[OwnerType.My] / zone.cell_owners[OwnerType.My]
-                    if fraction < emptiest_fraction:
-                        emptiest_fraction = fraction
-                        emptiest_zone = zone
-
-            if emptiest_zone is not None:
-                cells = emptiest_zone.cells[:]
-                random.shuffle(cells)
-                for cell in cells:
-                    if cell.CanSpawn:
-                        self.my_matter -= 10 * max_spawns_guaranteed
-                        spawn_cmds.append(
-                            f"SPAWN {max_spawns_guaranteed} {cell.x} {cell.y}"
-                        )
-                        break
-
-        if max_spawns_fighting != 0:
-            emptiest_zone = None
-            emptiest_fraction = 100000.0
-            for zone in self.zones:
-                if zone.type == ZoneType.FightInProgress:
-                    if zone.units[OwnerType.En] == 0:
-                        if emptiest_zone == None:
-                            emptiest_zone = zone
-                        continue
-                    fraction = zone.units[OwnerType.My] / zone.units[OwnerType.En]
-                    if fraction < emptiest_fraction:
-                        emptiest_fraction = fraction
-                        emptiest_zone = zone
-
-            if emptiest_zone is not None:
-                cells = emptiest_zone.cells[:]
-                random.shuffle(cells)
-                for cell in cells:
-                    if cell.CanSpawn:
-                        self.my_matter -= 10 * max_spawns_fighting
-                        spawn_cmds.append(
-                            f"SPAWN {max_spawns_fighting} {cell.x} {cell.y}"
-                        )
-                        break
-
-        return spawn_cmds
 
 
 class InputHandler:
@@ -477,13 +492,13 @@ def main():
     random.seed(18081991)
     # ih = InputHandler(input=InputHandler.__input_debugger__)  # type: ignore
     ih = InputHandler()  # type: ignore
-    gl = GameLogic()
+    gl = GameLogic(StrategyDefault())
 
     gl = ih.read_initial_input(gl)
     while True:
         gl = ih.read_turn_input(gl)
         gl.detect_zones()
-        moves = gl.get_robot_moves()
+        moves = gl.get_moves()
         builds = gl.get_builds()
         spawns = gl.get_spawns()
         if (len(moves) == 0) and (len(builds) == 0) and (len(spawns) == 0):
