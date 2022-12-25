@@ -120,8 +120,7 @@ class GameLogic:
         self.Strategy = strategy
         self.Strategy.post_init(self)
 
-    @staticmethod
-    def dist(x1: int, y1: int, x2: int, y2: int) -> float:
+    def dist(self, x1: int, y1: int, x2: int, y2: int) -> float:
         return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
     def is_walkable(self, cell: Cell) -> bool:
@@ -418,6 +417,26 @@ class StrategyDefault(Strategy):
         return move_cmds
 
 
+class StrategySplits(Strategy):
+    def post_init(self, game_logic: "GameLogic") -> None:
+        self.game_logic = game_logic
+
+    def get_spawns(self) -> list[str]:
+        sd = StrategyDefault()
+        sd.post_init(self.game_logic)
+        return sd.get_spawns()
+
+    def get_builds(self) -> list[str]:
+        sd = StrategyDefault()
+        sd.post_init(self.game_logic)
+        return sd.get_builds()
+
+    def get_moves(self) -> list[str]:
+        sd = StrategyDefault()
+        sd.post_init(self.game_logic)
+        return sd.get_moves()
+
+
 class InputHandler:
     __DEBUG = False
 
@@ -492,7 +511,7 @@ def main():
     random.seed(18081991)
     # ih = InputHandler(input=InputHandler.__input_debugger__)  # type: ignore
     ih = InputHandler()  # type: ignore
-    gl = GameLogic(StrategyDefault())
+    gl = GameLogic(StrategySplits())
 
     gl = ih.read_initial_input(gl)
     while True:
