@@ -3,8 +3,8 @@
 import random
 from unittest.mock import MagicMock
 
-from z_2022_02.inputs import Inputs
-from z_2022_02.bot import GameLogic, InputHandler, StrategyDefault, ZoneType
+from inputs import Inputs
+from bot import GameLogic, InputHandler, StrategyDefault, ZoneType
 import unittest
 
 
@@ -242,6 +242,51 @@ class TestBot(unittest.TestCase):
         self.assertEqual(
             ["SPAWN 1 2 1", "SPAWN 1 0 1"],
             spawns,
+        )
+
+    def test_game_logic_deepcopy_not_affecting_original(self):
+        inputs = Inputs()
+        lines = inputs.smart_builds_1
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
+
+        gl.preprocess()
+        gl_copy = gl.deepcopy()
+
+        gl.my_matter = 10
+        gl_copy.my_matter = 0
+        self.assertEqual(10, gl.my_matter)
+        self.assertEqual(0, gl_copy.my_matter)
+
+        gl.map.cells[0][0].ScrapAmount = 10
+        gl_copy.map.cells[0][0].ScrapAmount = 0
+        self.assertEqual(10, gl.map.cells[0][0].ScrapAmount)
+        self.assertEqual(0, gl_copy.map.cells[0][0].ScrapAmount)
+
+        gl.map.cells[1][0].ScrapAmount = -1
+        gl.map.cells[0][0].n_d.ScrapAmount = 10
+        gl_copy.map.cells[1][0].ScrapAmount = -1
+        gl_copy.map.cells[0][0].n_d.ScrapAmount = 0
+        self.assertEqual(10, gl.map.cells[0][0].n_d.ScrapAmount)
+        self.assertEqual(0, gl_copy.map.cells[0][0].n_d.ScrapAmount)
+        self.assertEqual(10, gl.map.cells[1][0].ScrapAmount)
+        self.assertEqual(0, gl_copy.map.cells[1][0].ScrapAmount)
+
+        gl.map.cells[0][0].n_r.ScrapAmount = -1  # to clean before the next line
+        gl.map.cells[0][1].ScrapAmount = 10
+        gl_copy.map.cells[0][0].n_r.ScrapAmount = -1
+        gl_copy.map.cells[0][1].ScrapAmount = 0
+        self.assertEqual(10, gl.map.cells[0][0].n_r.ScrapAmount)
+        self.assertEqual(0, gl_copy.map.cells[0][0].n_r.ScrapAmount)
+
+    def test_smart_builds_1(self):
+        inputs = Inputs()
+        lines = inputs.smart_builds_1
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
+        gl.preprocess()
+        builds = gl.get_builds()
+        self.assertEqual(
+            [],
+            builds,
         )
 
 

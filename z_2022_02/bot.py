@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import copy
 from enum import Enum
 import math
 import random
@@ -175,10 +176,13 @@ class GameLogic:
         self.en_matter: int = 0
         self.map: Map = Map()
         self.zones: list[Zone] = []
-        self.RecyclerMy = 0
-        self.RecyclerEn = 0
+        self.recycler_my = 0
+        self.recycler_en = 0
         self.Strategy = strategy
         self.Strategy.post_init(self)
+
+    def deepcopy(self):
+        return copy.deepcopy(self)
 
     def dist(self, x1: int, y1: int, x2: int, y2: int) -> float:
         return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
@@ -410,9 +414,13 @@ class StrategyDefault(Strategy):
 
         return spawn_cmds
 
+    def check_zone_split_effect(self, cell: Cell) -> None:
+        game_state_copy = self.game_logic.deepcopy()
+        game_state_copy.my_matter += 1000
+
     def get_builds(self) -> list[str]:
         build_cmds = []
-        if self.game_logic.RecyclerMy > self.game_logic.RecyclerEn:
+        if self.game_logic.recycler_my > self.game_logic.recycler_en:
             return build_cmds
         for zone in self.game_logic.zones:
             if zone.type == ZoneType.FightInProgress:
@@ -437,9 +445,12 @@ class StrategyDefault(Strategy):
                             cell.CanBuild = False
                             cell.Recycler = True
                             self.game_logic.my_matter -= 10
-                            self.game_logic.RecyclerMy += 1
+                            self.game_logic.recycler_my += 1
                             build_cmds.append(f"BUILD {cell.x} {cell.y}")
-                            if self.game_logic.RecyclerMy > self.game_logic.RecyclerEn:
+                            if (
+                                self.game_logic.recycler_my
+                                > self.game_logic.recycler_en
+                            ):
                                 return build_cmds
         return build_cmds
 
@@ -557,8 +568,8 @@ class InputHandler:
         game_logic.my_matter, game_logic.en_matter = [
             int(i) for i in self.input().split()
         ]
-        game_logic.RecyclerMy = 0
-        game_logic.RecyclerEn = 0
+        game_logic.recycler_my = 0
+        game_logic.recycler_en = 0
         for i in range(game_logic.height):
             for j in range(game_logic.width):
                 (
@@ -581,9 +592,9 @@ class InputHandler:
                 cell.x = j
                 cell.y = i
                 if cell.Recycler and cell.Owner == OwnerType.My:
-                    game_logic.RecyclerMy += 1
+                    game_logic.recycler_my += 1
                 if cell.Recycler and cell.Owner == OwnerType.En:
-                    game_logic.RecyclerEn += 1
+                    game_logic.recycler_en += 1
                 game_logic.map.cells[i][j] = cell
 
         return game_logic
