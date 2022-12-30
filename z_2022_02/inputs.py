@@ -20,7 +20,7 @@ class Inputs:
                     in_range_of_recycler,
                 ) = [int(k) for k in self.I1[l].split()]
                 cell = Cell()
-                cell.ScrapAmount = scrap_amount
+                cell.scrap_amount = scrap_amount
                 cell.Owner = OwnerType(owner)
                 cell.Units = units
                 cell.Recycler = True if recycler == 1 else False

@@ -29,7 +29,7 @@ class ZoneType(Enum):
 
 class Cell:
     def __init__(self):
-        self.ScrapAmount: int = 0
+        self.scrap_amount: int = 0
         self.Owner: OwnerType = OwnerType.No
         self.Units: int = 0
         self.Recycler: bool = False
@@ -44,17 +44,26 @@ class Cell:
         self.n_l: Cell = None  # type: ignore
         self.n_r: Cell = None  # type: ignore
 
+    def destroy(self):
+        self.scrap_amount = 0
+        self.Owner = OwnerType.No
+        self.Units = 0
+        self.Recycler = False
+        self.CanBuild = False
+        self.CanSpawn = False
+        self.InRangeOfRecycler = False
+
     def is_alomost_destroyed(self):
-        return self.InRangeOfRecycler and self.ScrapAmount == 1
+        return self.InRangeOfRecycler and self.scrap_amount == 1
 
     def is_contact_with_enemy(self):
-        if self.n_u and (self.n_u.Owner == OwnerType.En) and (self.ScrapAmount > 0):
+        if self.n_u and (self.n_u.Owner == OwnerType.En) and (self.scrap_amount > 0):
             return True
-        if self.n_d and (self.n_d.Owner == OwnerType.En) and (self.ScrapAmount > 0):
+        if self.n_d and (self.n_d.Owner == OwnerType.En) and (self.scrap_amount > 0):
             return True
-        if self.n_l and (self.n_l.Owner == OwnerType.En) and (self.ScrapAmount > 0):
+        if self.n_l and (self.n_l.Owner == OwnerType.En) and (self.scrap_amount > 0):
             return True
-        if self.n_r and (self.n_r.Owner == OwnerType.En) and (self.ScrapAmount > 0):
+        if self.n_r and (self.n_r.Owner == OwnerType.En) and (self.scrap_amount > 0):
             return True
         return False
 
@@ -62,29 +71,29 @@ class Cell:
         if (
             self.n_u
             and (self.n_u.Owner == OwnerType.No)
-            and (self.ScrapAmount > 0)
-            and (self.n_u.ScrapAmount > 0)
+            and (self.scrap_amount > 0)
+            and (self.n_u.scrap_amount > 0)
         ):
             return True
         if (
             self.n_d
             and (self.n_d.Owner == OwnerType.No)
-            and (self.ScrapAmount > 0)
-            and (self.n_d.ScrapAmount > 0)
+            and (self.scrap_amount > 0)
+            and (self.n_d.scrap_amount > 0)
         ):
             return True
         if (
             self.n_l
             and (self.n_l.Owner == OwnerType.No)
-            and (self.ScrapAmount > 0)
-            and (self.n_l.ScrapAmount > 0)
+            and (self.scrap_amount > 0)
+            and (self.n_l.scrap_amount > 0)
         ):
             return True
         if (
             self.n_r
             and (self.n_r.Owner == OwnerType.No)
-            and (self.ScrapAmount > 0)
-            and (self.n_r.ScrapAmount > 0)
+            and (self.scrap_amount > 0)
+            and (self.n_r.scrap_amount > 0)
         ):
             return True
         return False
@@ -93,7 +102,7 @@ class Cell:
         return self.is_contact_with_enemy() or self.is_contact_with_empty()
 
     def to_map(self):
-        print_char = self.ScrapAmount
+        print_char = self.scrap_amount
         if self.Owner == OwnerType.My:
             print_char = "M"
         elif self.Owner == OwnerType.En:
@@ -102,7 +111,7 @@ class Cell:
 
     def same(self, other: "Cell"):
         if (
-            self.ScrapAmount == other.ScrapAmount
+            self.scrap_amount == other.scrap_amount
             and self.Owner == other.Owner
             and self.Units == other.Units
             and self.Recycler == other.Recycler
@@ -188,7 +197,7 @@ class GameLogic:
         return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
     def is_walkable(self, cell: Cell) -> bool:
-        if (cell.ScrapAmount > 0) and (not cell.Recycler):
+        if (cell.scrap_amount > 0) and (not cell.Recycler):
             return True
         return False
 
@@ -211,6 +220,9 @@ class GameLogic:
 
     def zones_init(self):
         self.zones.clear()
+        for cl in self.map.cells:
+            for cell in cl:
+                cell.zone_checked = False
         for cl in self.map.cells:
             for cell in cl:
                 if self.is_walkable(cell) and (not cell.zone_checked):
@@ -287,7 +299,7 @@ class GameLogic:
         dist = 10000
         cell_to = None
         for cell in zone.cells:
-            if cell.Owner == OwnerType.No and cell.ScrapAmount > 0:
+            if cell.Owner == OwnerType.No and cell.scrap_amount > 0:
                 current_dist = self.dist(cell_from.x, cell_from.y, cell.x, cell.y)
                 if current_dist < dist:
                     dist = current_dist
@@ -316,6 +328,23 @@ class GameLogic:
         if this_cell.n_r:
             cells.append(this_cell.n_r)
         return cells
+
+    def check_zones_if_built(self, cell: Cell) -> list[Zone]:
+        game_state_copy = self.deepcopy()
+        recycler_lifetime = cell.scrap_amount
+        x = cell.x
+        y = cell.y
+
+        cell_copy = game_state_copy.map.cell(x, y)
+        adj_cells = game_state_copy.get_addjusted_cells(cell_copy)
+        for adj_cell in adj_cells:
+            adj_cell.scrap_amount -= recycler_lifetime
+            if adj_cell.scrap_amount <= 0:
+                adj_cell.destroy()
+        cell_copy.destroy()
+
+        game_state_copy.zones_init()
+        return game_state_copy.zones
 
     def get_moves(self) -> list[str]:
         return self.Strategy.get_moves()
@@ -413,10 +442,6 @@ class StrategyDefault(Strategy):
                     spawn_cmds.append(spawn_cmd)
 
         return spawn_cmds
-
-    def check_zone_split_effect(self, cell: Cell) -> None:
-        game_state_copy = self.game_logic.deepcopy()
-        game_state_copy.my_matter += 1000
 
     def get_builds(self) -> list[str]:
         build_cmds = []
@@ -582,7 +607,7 @@ class InputHandler:
                     in_range_of_recycler,
                 ) = [int(k) for k in self.input().split()]
                 cell = Cell()
-                cell.ScrapAmount = scrap_amount
+                cell.scrap_amount = scrap_amount
                 cell.Owner = OwnerType(owner)
                 cell.Units = units
                 cell.Recycler = True if recycler == 1 else False

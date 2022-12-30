@@ -257,26 +257,56 @@ class TestBot(unittest.TestCase):
         self.assertEqual(10, gl.my_matter)
         self.assertEqual(0, gl_copy.my_matter)
 
-        gl.map.cells[0][0].ScrapAmount = 10
-        gl_copy.map.cells[0][0].ScrapAmount = 0
-        self.assertEqual(10, gl.map.cells[0][0].ScrapAmount)
-        self.assertEqual(0, gl_copy.map.cells[0][0].ScrapAmount)
+        gl.map.cells[0][0].scrap_amount = 10
+        gl_copy.map.cells[0][0].scrap_amount = 0
+        self.assertEqual(10, gl.map.cells[0][0].scrap_amount)
+        self.assertEqual(0, gl_copy.map.cells[0][0].scrap_amount)
 
-        gl.map.cells[1][0].ScrapAmount = -1
-        gl.map.cells[0][0].n_d.ScrapAmount = 10
-        gl_copy.map.cells[1][0].ScrapAmount = -1
-        gl_copy.map.cells[0][0].n_d.ScrapAmount = 0
-        self.assertEqual(10, gl.map.cells[0][0].n_d.ScrapAmount)
-        self.assertEqual(0, gl_copy.map.cells[0][0].n_d.ScrapAmount)
-        self.assertEqual(10, gl.map.cells[1][0].ScrapAmount)
-        self.assertEqual(0, gl_copy.map.cells[1][0].ScrapAmount)
+        gl.map.cells[1][0].scrap_amount = -1
+        gl.map.cells[0][0].n_d.scrap_amount = 10
+        gl_copy.map.cells[1][0].scrap_amount = -1
+        gl_copy.map.cells[0][0].n_d.scrap_amount = 0
+        self.assertEqual(10, gl.map.cells[0][0].n_d.scrap_amount)
+        self.assertEqual(0, gl_copy.map.cells[0][0].n_d.scrap_amount)
+        self.assertEqual(10, gl.map.cells[1][0].scrap_amount)
+        self.assertEqual(0, gl_copy.map.cells[1][0].scrap_amount)
 
-        gl.map.cells[0][0].n_r.ScrapAmount = -1  # to clean before the next line
-        gl.map.cells[0][1].ScrapAmount = 10
-        gl_copy.map.cells[0][0].n_r.ScrapAmount = -1
-        gl_copy.map.cells[0][1].ScrapAmount = 0
-        self.assertEqual(10, gl.map.cells[0][0].n_r.ScrapAmount)
-        self.assertEqual(0, gl_copy.map.cells[0][0].n_r.ScrapAmount)
+        gl.map.cells[0][0].n_r.scrap_amount = -1  # to clean before the next line
+        gl.map.cells[0][1].scrap_amount = 10
+        gl_copy.map.cells[0][0].n_r.scrap_amount = -1
+        gl_copy.map.cells[0][1].scrap_amount = 0
+        self.assertEqual(10, gl.map.cells[0][0].n_r.scrap_amount)
+        self.assertEqual(0, gl_copy.map.cells[0][0].n_r.scrap_amount)
+
+    def test_check_zone_split_effect_1(self):
+        inputs = Inputs()
+        lines = inputs.smart_builds_1
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
+        gl.preprocess()
+        new_zones = gl.check_zones_if_built(gl.map.cell(2, 0))
+        self.assertEqual(2, len(new_zones))
+        self.assertEqual(1, len(new_zones[0].cells))
+        self.assertEqual(ZoneType.Unreachable, new_zones[0].type)
+        self.assertEqual(7, len(new_zones[1].cells))
+        self.assertEqual(ZoneType.FightInProgress, new_zones[1].type)
+
+        self.assertEqual(1, len(gl.zones))
+        self.assertEqual(ZoneType.FightInProgress, gl.zones[0].type)
+
+    def test_check_zone_split_effect_2(self):
+        inputs = Inputs()
+        lines = inputs.smart_builds_1
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
+        gl.preprocess()
+        new_zones = gl.check_zones_if_built(gl.map.cell(4, 2))
+        self.assertEqual(2, len(new_zones))
+        self.assertEqual(5, len(new_zones[0].cells))
+        self.assertEqual(ZoneType.GuaranteedMy, new_zones[0].type)
+        self.assertEqual(3, len(new_zones[1].cells))
+        self.assertEqual(ZoneType.GuaranteedEn, new_zones[1].type)
+
+        self.assertEqual(1, len(gl.zones))
+        self.assertEqual(ZoneType.FightInProgress, gl.zones[0].type)
 
     def test_smart_builds_1(self):
         inputs = Inputs()
