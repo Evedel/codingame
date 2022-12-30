@@ -4,6 +4,7 @@ from enum import Enum
 import math
 import random
 import sys
+from typing import Tuple
 
 
 class OwnerType(Enum):
@@ -295,7 +296,7 @@ class GameLogic:
             ):
                 zone.type = ZoneType.GuaranteedMy
 
-    def get_closest_unoccupied(self, cell_from: Cell, zone: Zone):
+    def get_closest_empty(self, cell_from: Cell, zone: Zone):
         dist = 10000
         cell_to = None
         for cell in zone.cells:
@@ -331,11 +332,27 @@ class GameLogic:
 
     def check_zones_if_built(self, cell: Cell) -> list[Zone]:
         game_state_copy = self.deepcopy()
-        recycler_lifetime = cell.scrap_amount
-        x = cell.x
-        y = cell.y
 
-        cell_copy = game_state_copy.map.cell(x, y)
+        cell_copy = game_state_copy.map.cell(cell.x, cell.y)
+        adj_cells = game_state_copy.get_addjusted_cells(cell_copy)
+        for adj_cell in adj_cells:
+            adj_cell.scrap_amount -= 1
+            if adj_cell.scrap_amount <= 0:
+                adj_cell.destroy()
+        cell_copy.scrap_amount -= 1
+        if cell_copy.scrap_amount <= 0:
+            cell_copy.destroy()
+        else:
+            cell_copy.Recycler = True
+
+        game_state_copy.zones_init()
+        return game_state_copy.zones
+
+    def check_zones_if_built_long(self, cell: Cell) -> list[Zone]:
+        game_state_copy = self.deepcopy()
+        recycler_lifetime = cell.scrap_amount
+
+        cell_copy = game_state_copy.map.cell(cell.x, cell.y)
         adj_cells = game_state_copy.get_addjusted_cells(cell_copy)
         for adj_cell in adj_cells:
             adj_cell.scrap_amount -= recycler_lifetime
@@ -345,6 +362,54 @@ class GameLogic:
 
         game_state_copy.zones_init()
         return game_state_copy.zones
+
+    def check_recycler_output(self, cell: Cell) -> int:
+        scrap = cell.scrap_amount
+        adj_cells = self.get_addjusted_cells(cell)
+        for adj_cell in adj_cells:
+            scrap += min(adj_cell.scrap_amount, cell.scrap_amount)
+        return scrap
+
+    def check_balance(self, zones: list[Zone]) -> Tuple[int, int, int, int, int, int]:
+        zones_unreachable = 0
+        zones_my = 0
+        zones_en = 0
+        cells_unreachable = 0
+        cells_my = 0
+        cells_en = 0
+
+        for zone in zones:
+            if zone.type == ZoneType.Unreachable:
+                zones_unreachable += 1
+                cells_unreachable += len(zone.cells)
+            elif zone.type == ZoneType.GuaranteedMy:
+                zones_my += 1
+                cells_my += len(zone.cells)
+            elif zone.type == ZoneType.GuaranteedEn:
+                zones_en += 1
+                cells_en += len(zone.cells)
+            elif zone.type == ZoneType.CapturedMy:
+                zones_my += 1
+                cells_my += len(zone.cells)
+            elif zone.type == ZoneType.CapturedEn:
+                zones_en += 1
+                cells_en += len(zone.cells)
+            # elif zone.type == ZoneType.FightInProgress:
+            #     cells_my += int(
+            #         zone.cell_owners[OwnerType.My] + zone.cell_owners[OwnerType.No] / 2
+            #     )
+            #     cells_en += int(
+            #         zone.cell_owners[OwnerType.En] + zone.cell_owners[OwnerType.No] / 2
+            #     )
+
+        return (
+            zones_unreachable,
+            zones_my,
+            zones_en,
+            cells_unreachable,
+            cells_my,
+            cells_en,
+        )
 
     def get_moves(self) -> list[str]:
         return self.Strategy.get_moves()
@@ -444,49 +509,72 @@ class StrategyDefault(Strategy):
         return spawn_cmds
 
     def get_builds(self) -> list[str]:
+        (
+            zones_unreachable_before,
+            zones_my_before,
+            zones_en_before,
+            cells_unreachable_before,
+            cells_my_before,
+            cells_en_before,
+        ) = self.game_logic.check_balance(self.game_logic.zones)
+        cells_balance_before = cells_my_before - cells_en_before
+
+        best_balance = cells_balance_before
+        best_cell = None
+
         build_cmds = []
         if self.game_logic.recycler_my > self.game_logic.recycler_en:
             return build_cmds
+
         for zone in self.game_logic.zones:
             if zone.type == ZoneType.FightInProgress:
-                for cell in zone.cells:
-                    if self.game_logic.my_matter >= 10 and cell.CanBuild:
-                        should_build = True
-                        adjusted_cells = self.game_logic.get_addjusted_cells(cell)
-                        for adj_cell in adjusted_cells:
-                            if adj_cell.Recycler and adj_cell.Owner == OwnerType.My:
-                                should_build = False
-                            else:
-                                adjusted_of_adjusted_cells = (
-                                    self.game_logic.get_addjusted_cells(adj_cell)
-                                )
-                                for adj_adj_cell in adjusted_of_adjusted_cells:
-                                    if (
-                                        adj_adj_cell.Recycler
-                                        and adj_adj_cell.Owner == OwnerType.My
-                                    ):
-                                        should_build = False
-                        if should_build:
-                            cell.CanBuild = False
-                            cell.Recycler = True
-                            self.game_logic.my_matter -= 10
-                            self.game_logic.recycler_my += 1
-                            build_cmds.append(f"BUILD {cell.x} {cell.y}")
-                            if (
-                                self.game_logic.recycler_my
-                                > self.game_logic.recycler_en
-                            ):
-                                return build_cmds
+                max_tries = 5
+                num_tries = 0
+                iter_cells = zone.cells[:]
+                random.shuffle(iter_cells)
+                for cell in iter_cells:
+                    if (
+                        num_tries <= max_tries
+                        and self.game_logic.my_matter >= 10
+                        and cell.CanBuild
+                        # and self.game_logic.check_recycler_output(cell) >= 10
+                    ):
+                        num_tries += 1
+                        new_zones = self.game_logic.check_zones_if_built_long(cell)
+                        (
+                            zones_unreachable_after,
+                            zones_my_after,
+                            zones_en_after,
+                            cells_unreachable_after,
+                            cells_my_after,
+                            cells_en_after,
+                        ) = self.game_logic.check_balance(new_zones)
+                        cells_balance_after = cells_my_after - cells_en_after
+
+                        if cells_balance_after > best_balance:
+                            best_balance = cells_balance_after
+                            best_cell = cell
+
+        if best_cell:
+            best_cell.CanBuild = False
+            best_cell.Recycler = True
+            self.game_logic.my_matter -= 10
+            self.game_logic.recycler_my += 1
+            build_cmds.append(f"BUILD {best_cell.x} {best_cell.y}")
+
         return build_cmds
 
     def get_move_target(self, zone: Zone, cell: Cell) -> Move:
         if cell.Owner == OwnerType.My and cell.Units > 0:
             if zone.type == ZoneType.FightInProgress:
-                target, distance = self.game_logic.get_closest_enemy(cell, zone)
-                if target:
-                    return Move(cell, target, zone, distance)
+                target_en, distance_en = self.game_logic.get_closest_enemy(cell, zone)
+                target_no, distance_no = self.game_logic.get_closest_empty(cell, zone)
+                if target_no and (distance_no == 1):
+                    return Move(cell, target_no, zone, distance_no)
+                elif target_en:
+                    return Move(cell, target_en, zone, distance_en)
             elif zone.type == ZoneType.GuaranteedMy:
-                target, distance = self.game_logic.get_closest_unoccupied(cell, zone)
+                target, distance = self.game_logic.get_closest_empty(cell, zone)
                 if target:
                     return Move(cell, target, zone, distance)
         return None  # type: ignore

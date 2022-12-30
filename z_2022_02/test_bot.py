@@ -285,9 +285,9 @@ class TestBot(unittest.TestCase):
         gl.preprocess()
         new_zones = gl.check_zones_if_built(gl.map.cell(2, 0))
         self.assertEqual(2, len(new_zones))
-        self.assertEqual(1, len(new_zones[0].cells))
+        self.assertEqual(2, len(new_zones[0].cells))
         self.assertEqual(ZoneType.Unreachable, new_zones[0].type)
-        self.assertEqual(7, len(new_zones[1].cells))
+        self.assertEqual(8, len(new_zones[1].cells))
         self.assertEqual(ZoneType.FightInProgress, new_zones[1].type)
 
         self.assertEqual(1, len(gl.zones))
@@ -300,9 +300,9 @@ class TestBot(unittest.TestCase):
         gl.preprocess()
         new_zones = gl.check_zones_if_built(gl.map.cell(4, 2))
         self.assertEqual(2, len(new_zones))
-        self.assertEqual(5, len(new_zones[0].cells))
+        self.assertEqual(6, len(new_zones[0].cells))
         self.assertEqual(ZoneType.GuaranteedMy, new_zones[0].type)
-        self.assertEqual(3, len(new_zones[1].cells))
+        self.assertEqual(4, len(new_zones[1].cells))
         self.assertEqual(ZoneType.GuaranteedEn, new_zones[1].type)
 
         self.assertEqual(1, len(gl.zones))
@@ -319,6 +319,17 @@ class TestBot(unittest.TestCase):
             builds,
         )
 
+    def test_smart_builds_2(self):
+        inputs = Inputs()
+        lines = inputs.smart_builds_2
+        gl = self.__get_gl_from_input_w_default_strategy(lines)
+        gl.preprocess()
+        builds = gl.get_builds()
+        self.assertEqual(
+            ["BUILD 2 2"],
+            builds,
+        )
+
 
 # TODO:
 # - spawns:
@@ -331,6 +342,11 @@ class TestBot(unittest.TestCase):
 #   - do not place recyclers in the mid of my zones
 #   - need to ensure can spawn more recyclers than enemy
 #   - build recyclers to cut off enemy zones
+# - planning
+#   - if recycler will destroy cell
+#     - move bots out of there
+#   - if recycler will turn guaranteed zone into unreachable soon
+#     - need to try move bots to capture it
 if __name__ == "__main__":
     random.seed(18081991)
     unittest.main()
