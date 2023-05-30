@@ -180,9 +180,10 @@ class StrategyDefault(Strategy):
                     bestDist = dist
                     bestCell = cell
                     bestIndex = len(res)
-                res.append(f"LINE {base.id} {cell.id} 1")
+                # res.append(f"LINE {base.id} {cell.id} 1")
         if bestCell:
-            res[bestIndex] = f"LINE {base.id} {bestCell.id} 2"
+            # res[bestIndex] = f"LINE {base.id} {bestCell.id} 5"
+            res.append(f"LINE {base.id} {bestCell.id} 5")
 
         bestDist = 1000
         bestCell = None
@@ -194,9 +195,10 @@ class StrategyDefault(Strategy):
                     bestDist = dist
                     bestCell = cell
                     bestIndex = len(res)
-                res.append(f"LINE {base.id} {cell.id} 1")
+                # res.append(f"LINE {base.id} {cell.id} 1")
         if bestCell:
-            res[bestIndex] = f"LINE {base.id} {bestCell.id} 2"
+            # res[bestIndex] = f"LINE {base.id} {bestCell.id} 5"
+            res.append(f"LINE {base.id} {bestCell.id} 5")
 
         return [";".join(res)]
 
