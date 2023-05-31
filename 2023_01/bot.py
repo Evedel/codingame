@@ -5,6 +5,7 @@
 from abc import ABC, abstractmethod
 import copy
 from enum import Enum
+import math
 import random
 import sys
 
@@ -26,16 +27,25 @@ class Cell:
         self.my_base: bool = False
         self.opp_base: bool = False
         self.neighbours: list[Cell] = []
+        self.distance_to_base: int = 0
         self.x: int = 0
         self.y: int = 0
 
-    def dist(self, cell):
-        if abs(self.y - cell.y) < 2:
-            return abs(self.x - cell.x)
-        return (abs(self.x - cell.x) + abs(self.y - cell.y)) / 2
+    def dist(self, cell2: "Cell"):
+        if abs(self.x - cell2.x) < 2:
+            return abs(self.y - cell2.y)
+        return (abs(self.x - cell2.x) + abs(self.y - cell2.y)) / 2
 
     def to_map(self):
-        return str(self.resource)
+        if self.my_base:
+            return "M"
+        if self.opp_base:
+            return "E"
+        if (
+            self.type == CellType.Egg or self.type == CellType.Crystal
+        ) and self.resource > 0:
+            return str(self.resource)
+        return "x"
 
     def deepcopy(self):
         return copy.deepcopy(self)
@@ -69,11 +79,20 @@ class Map:
         self.size: int = size
         self.cells: list[Cell] = [Cell() for _ in range(self.size)]
         self.matrix: list[list[Cell]] = None
+        self.initial_crystals: int = 0
+        self.crystals_collected: int = 0
+        self.my_ants_total: int = 0
+        self.opp_ants_total: int = 0
 
     def get_by_type(self, cell_type: CellType) -> list[Cell]:
         if cell_type == CellType.Base:
             return [cell for cell in self.cells if cell.my_base]
         return [cell for cell in self.cells if cell.type == cell_type]
+
+    def precalc_distances_to_base(self) -> None:
+        base = self.get_by_type(CellType.Base)[0]
+        for cell in self.cells:
+            cell.distance_to_base = base.dist(cell)
 
     def hex_to_matrix(self) -> None:
         visited = [False for i in range(self.size)]
@@ -159,14 +178,176 @@ class Strategy(ABC):
         pass
 
 
+class Option:
+    def __init__(self, cell, map, turns_to_win, crystals_collected):
+        self.cell = cell
+        self.map = map
+        self.turns_to_win = turns_to_win
+        self.crystals_collected = crystals_collected
+
+    def __str__(self) -> str:
+        return f"Option(id:{self.cell.id:2}, ttw:{self.turns_to_win:2}, crc:{self.crystals_collected:2}, ants:{self.map.my_ants_total:2})"
+
+
 class StrategyDefault(Strategy):
     def post_init(self, game_logic: "GameLogic") -> None:
         self.game_logic = game_logic
 
     def pre_game(self) -> None:
         self.game_logic.map.hex_to_matrix()
+        self.game_logic.map.precalc_distances_to_base()
+
+    def step_crystal(self, map: Map, cell_id: int):
+        map_local = map.deepcopy()
+        turns_to_reach = math.ceil(map_local.cells[cell_id].distance_to_base) + 1
+        ants_per_cell = map_local.my_ants_total // turns_to_reach
+        if ants_per_cell == 0:
+            return 1000000, 0, None
+
+        turns_to_deplete = math.ceil(map_local.cells[cell_id].resource / ants_per_cell)
+        turns_to_win = turns_to_reach + turns_to_deplete
+        # turns_to_win = turns_to_deplete
+        crystals_collected = map_local.cells[cell_id].resource
+        map_local.cells[cell_id].resource = 0
+
+        return turns_to_win, crystals_collected, map_local
+
+    def step_eggs(self, map: Map, cell_id: int):
+        map_local = map.deepcopy()
+        turns_to_reach = math.ceil(map_local.cells[cell_id].distance_to_base) + 1
+        ants_per_cell = map_local.my_ants_total // turns_to_reach
+        if ants_per_cell == 0:
+            return 1000000, 0, None
+
+        turns_to_deplete = 0
+        while map_local.cells[cell_id].resource > 0:
+            mined_eggs = (
+                ants_per_cell
+                if map_local.cells[cell_id].resource >= ants_per_cell
+                else map_local.cells[cell_id].resource
+            )
+            map_local.my_ants_total += mined_eggs
+            map_local.cells[cell_id].resource -= mined_eggs
+            ants_per_cell = map_local.my_ants_total // turns_to_reach
+            turns_to_deplete += 1
+        turns_to_win = turns_to_reach + turns_to_deplete
+        # turns_to_win = turns_to_deplete
+
+        return turns_to_win, 0, map_local
+
+    def solve(self) -> int:
+        dp = InputHandler.dp
+        map = self.game_logic.map
+        dp(map.initial_crystals)
+        number_of_options = 3
+        option = Option(
+            cell=None,
+            map=map,
+            turns_to_win=0,
+            crystals_collected=0,
+        )
+        result = self.solve_step_recursive(dp, number_of_options, option)
+        # for option in result:
+        #     print(option)
+        #     option.map.print_map()
+        return result[0].cell.id
+
+    def solve_step_recursive(
+        self,
+        dp,
+        number_of_options: int,
+        previous_option: Option,
+        depth: int = 0,
+        max_depth: int = 3,
+    ) -> None:
+        map = previous_option.map
+        options = self.solve_step(dp, map, number_of_options)
+
+        best_chain = []
+        best_option = []
+        best_score = -1
+
+        depth += 1
+
+        # print(f"depth: {depth}")
+        for option in options:
+            option.turns_to_win += previous_option.turns_to_win
+            option.crystals_collected += previous_option.crystals_collected
+            # print(option)
+            result = [option]
+            if depth < max_depth:
+                result += self.solve_step_recursive(
+                    dp, number_of_options, option, depth, max_depth
+                )
+            score = result[-1].crystals_collected / result[-1].turns_to_win
+            # print(score)
+            if score > best_score:
+                best_option = result
+                best_score = score
+
+        best_chain = best_option
+
+        # print(f"depth: {depth}")
+
+        return best_chain
+
+    def solve_step(self, dp, map: Map, number_of_options: int) -> list[Option]:
+        options = (
+            []
+        )  # (cell, map, turns_to_win, crystals_collected, ants_collected) convert to class when ready
+
+        # turns_to_win = 0
+        # crystals_collected = 0
+        map_local = map.deepcopy()
+        added_options = 0
+        while added_options < number_of_options:
+            best_distance = 1000000
+            best_cell = None
+
+            for cell in map_local.cells:
+                if (cell.type == CellType.Egg or cell.type == CellType.Crystal) and (
+                    cell.resource > 0
+                ):
+                    distance = cell.distance_to_base
+                    if distance < best_distance:
+                        best_distance = distance
+                        best_cell = cell
+
+            if best_cell:
+                if best_cell.type == CellType.Egg:
+                    (
+                        turns_to_win_step,
+                        crystals_collected_step,
+                        map_local_step,
+                    ) = self.step_eggs(map, best_cell.id)
+                elif best_cell.type == CellType.Crystal:
+                    (
+                        turns_to_win_step,
+                        crystals_collected_step,
+                        map_local_step,
+                    ) = self.step_crystal(map, best_cell.id)
+
+                options.append(
+                    Option(
+                        best_cell,
+                        map_local_step,
+                        turns_to_win_step,
+                        crystals_collected_step,
+                    )
+                )
+                best_cell.resource = 0
+                added_options += 1
+            else:
+                break
+
+        return options
 
     def get_lines(self) -> list[str]:
+        base: Cell = self.game_logic.map.get_by_type(CellType.Base)[0]
+        cell_id = self.solve()
+        return [f"LINE {base.id} {cell_id} 1"]
+
+    def get_lines_old(self) -> list[str]:
         base: Cell = self.game_logic.map.get_by_type(CellType.Base)[0]
         eggs: list[Cell] = self.game_logic.map.get_by_type(CellType.Egg)
         res = []
@@ -175,7 +356,7 @@ class StrategyDefault(Strategy):
         bestIndex = 0
         for cell in eggs:
             if cell.resource > 0:
-                dist = self.game_logic.dist(base, cell)
+                dist = cell.distance_to_base
                 if dist < bestDist:
                     bestDist = dist
                     bestCell = cell
@@ -190,7 +371,7 @@ class StrategyDefault(Strategy):
         bestIndex = 0
         for cell in self.game_logic.map.cells:
             if (cell.type == CellType.Crystal) and (cell.resource > 0):
-                dist = self.game_logic.dist(base, cell)
+                dist = cell.distance_to_base
                 if dist < bestDist:
                     bestDist = dist
                     bestCell = cell
@@ -211,11 +392,6 @@ class GameLogic:
 
     def deepcopy(self):
         return copy.deepcopy(self)
-
-    def dist(self, cell1: Cell, cell2: Cell):
-        if abs(cell1.x - cell2.x) < 2:
-            return abs(cell1.y - cell2.y)
-        return (abs(cell1.x - cell2.x) + abs(cell1.y - cell2.y)) / 2
 
 
 class InputHandler:
@@ -248,6 +424,7 @@ class InputHandler:
                 return None
             return game_logic.map.cells[id]
 
+        initial_crystals = 0
         for i in range(number_of_cells):
             # _type: 0 for empty, 1 for eggs, 2 for crystal
             # initial_resources: the initial amount of eggs/crystals on this cell
@@ -273,6 +450,10 @@ class InputHandler:
                 get_cell_or_none(neigh_5),
             ]
             game_logic.map.cells[i].type = CellType(type)
+            if game_logic.map.cells[i].type == CellType.Crystal:
+                initial_crystals += initial_resources
+
+        game_logic.map.initial_crystals = initial_crystals
 
         number_of_bases = int(self.input())
         for i in self.input().split():
@@ -285,6 +466,9 @@ class InputHandler:
         return game_logic
 
     def read_turn_input(self, game_logic: GameLogic):
+        my_ants_total = 0
+        opp_ants_total = 0
+
         for i in range(game_logic.map.size):
             # resources: the current amount of eggs/crystals on this cell
             # my_ants: the amount of your ants on this cell
@@ -293,7 +477,11 @@ class InputHandler:
             game_logic.map.cells[i].resource = resources
             game_logic.map.cells[i].my_ants = my_ants
             game_logic.map.cells[i].opp_ants = opp_ants
+            my_ants_total += my_ants
+            opp_ants_total += opp_ants
 
+        game_logic.map.my_ants_total = my_ants_total
+        game_logic.map.opp_ants_total = opp_ants_total
         return game_logic
 
 
